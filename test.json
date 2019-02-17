@@ -1,0 +1,57 @@
+{
+    "test_dict" : {
+        "meta": {
+            "release": "PUBLIC",
+            "sourceLanguage": "en",
+            "targetLanguage": [
+                "en",
+                "de"
+            ],
+            "genre": [
+                "gen"
+            ],
+            "license": "https://creativecommons.org/licenses/by/4.0/",
+            "title": "The Human-Readable Name of this resource",
+            "creator": [
+                {
+                    "name": "Institute of This Resource",
+                    "email": "contact@institute.com"
+                }
+            ],
+            "publisher": [
+                {
+                    "name": "Publishing Company"
+                }
+            ],
+            "entries": [{
+                "release": "PUBLIC",
+                "lemma": "example",
+                "language": "en",
+                "id": "test",
+                "partOfSpeech": [
+                    "ADJ"
+                ],
+                "formats": [
+                    "json"
+                ]
+            }]
+        },
+        "entries": [{
+            "@context": "http://lexinfo.net/jsonld/3.0/content.json",
+            "@type": "Word",
+            "@id": "test",
+            "language": "en",
+            "partOfSpeech": "lexinfo:adjective",
+            "canonicalForm": {
+                "writtenRep": "example"
+            },
+            "senses": [
+                {
+                    "definition": "An example OntoLex Entry"
+                }
+            ]
+        }]
+    }
+}
+
+

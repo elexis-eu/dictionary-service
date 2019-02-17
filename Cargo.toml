@@ -1,0 +1,16 @@
+[package]
+name = "eds"
+version = "0.1.0"
+authors = ["John P. McCrae <john@mccr.ae>"]
+edition = "2018"
+
+[dependencies]
+gotham = "0.3.0"
+gotham_derive = "*"
+http = "0.1"
+hyper = "*"
+mime = "*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+clap = "*"
