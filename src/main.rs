@@ -9,9 +9,11 @@ extern crate serde_json;
 #[macro_use]
 extern crate gotham_derive;
 extern crate clap;
+extern crate xml;
 
 mod rest;
 mod state;
+mod tei;
 
 use gotham::state::State;
 use gotham::router::Router;

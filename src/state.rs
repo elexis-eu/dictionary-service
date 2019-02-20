@@ -100,9 +100,19 @@ pub enum Genre {
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
 pub struct Agent {
-    name : String,
-    email : Option<String>,
-    url : Option<String>
+    pub name : String,
+    pub email : Option<String>,
+    pub url : Option<String>
+}
+
+impl Agent {
+    pub fn new() -> Self { 
+        Self {
+            name: String::new(),
+            email: None,
+            url: None
+        }
+    }
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
