@@ -11,7 +11,7 @@ pub struct EDSState {
 
 impl EDSState {
     pub fn new(dictionaries : HashMap<String, Dictionary>,
-               dict_entries : HashMap<String, Vec<EntryContent>>) -> Self {
+               dict_entries : HashMap<String, Vec<JsonEntry>>) -> Self {
         let mut dict_entry_map = HashMap::new();
         let mut dict_entry_map2 = HashMap::new();
         let mut entry_by_id = HashMap::new();
@@ -20,7 +20,7 @@ impl EDSState {
             let mut eid_map = HashMap::new();
             let mut entry_map2 = HashMap::new();
             for entry in entries {
-                eid_map.insert(entry.id.clone(), entry.clone());
+                eid_map.insert(entry.id.clone(), EntryContent::Json(entry.clone()));
                 if !entry_map.contains_key(&entry.canonical_form.written_rep) {
                     entry_map.insert(entry.canonical_form.written_rep.to_string(),
                         Vec::new());
@@ -55,7 +55,7 @@ impl EDSState {
     }
 }
 
-fn entry_from_content(content : &EntryContent) -> Entry {
+fn entry_from_content(content : &JsonEntry) -> Entry {
     Entry {
         release: Release::PUBLIC,
         lemma: content.canonical_form.written_rep.to_string(),
@@ -75,6 +75,20 @@ pub struct Dictionary {
     license : String,
     creator : Vec<Agent>,
     publisher : Vec<Agent>
+}
+
+impl Dictionary {
+    pub fn new(release : Release, source_language : String,
+               target_language : Vec<String>,
+               genre : Vec<Genre>,
+               license : String,
+               creator : Vec<Agent>,
+               publisher : Vec<Agent>) -> Self {
+        Dictionary {
+            release, source_language, target_language, genre,
+            license, creator, publisher
+        }
+    }
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
@@ -131,6 +145,15 @@ pub struct Entry {
     formats : Vec<Format>
 }
 
+impl Entry {
+    pub fn new(release : Release, lemma : String, id : String,
+               part_of_speech : Vec<PartOfSpeech>, formats : Vec<Format>) -> Self {
+        Entry {
+            release, lemma, id, part_of_speech, formats
+        }
+    }
+}
+
 #[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum PartOfSpeech {
@@ -161,9 +184,16 @@ pub enum Format {
     json
 }
 
+#[derive(Clone,Debug,Deserialize)]
+pub enum EntryContent {
+    Json(JsonEntry),
+    Tei(String),
+    OntoLex(String)
+}
+
 #[derive(Clone,Debug,Serialize,Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EntryContent {
+pub struct JsonEntry {
     #[serde(rename="@context")] context : String,
     #[serde(rename="@id")] pub id : String,
     #[serde(rename="@type")] pub entry_type : Type,

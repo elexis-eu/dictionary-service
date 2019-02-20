@@ -3,7 +3,7 @@ use gotham::state::State;
 use hyper::Body;
 use gotham::helpers::http::response::create_response;
 use mime;
-use crate::state::{EDSState, Entry};
+use crate::state::{EDSState, Entry, EntryContent};
 use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams};
 use gotham::state::FromState;
 
@@ -162,12 +162,19 @@ pub fn entry_json(state : State) -> (State, Response<Body>) {
         let data = EDSState::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
         match data.entries_id.lock().unwrap().get(&params1.dictionary).and_then(|x| x.get(&params1.id)) {
-            Some(entry) => {
+            Some(EntryContent::Json(entry)) => {
                 create_response(
                     &state,
                     StatusCode::OK,
                     mime::APPLICATION_JSON,
                     serde_json::to_vec(entry).expect("Cannot serialize entry"))
+            },
+            Some(_) => {
+                create_response(
+                    &state,
+                    StatusCode::NOT_FOUND,
+                    mime::TEXT_PLAIN,
+                    "Entry not available as Json")
             },
             None => {
                 create_response(

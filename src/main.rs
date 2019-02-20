@@ -34,7 +34,7 @@ use clap::{App, Arg};
 use std::fs::File;
 use std::collections::HashMap;
 
-use crate::state::{EDSState, Dictionary, EntryContent, PartOfSpeech};
+use crate::state::{EDSState, Dictionary, JsonEntry, PartOfSpeech};
 
 fn router(state : EDSState) -> Router {
     let middleware = StateMiddleware::new(state);
@@ -146,5 +146,5 @@ fn main() {
 #[serde(rename_all = "camelCase")]
 pub struct DictJson {
     meta : Dictionary,
-    entries : Vec<EntryContent>
+    entries : Vec<JsonEntry>
 }
