@@ -1,7 +1,212 @@
 <html>
     <head>
+   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
+    <meta name="generator" content="Jekyll v3.8.5">
+    <title>ELEXIS Dictionary Service</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <style>
+body {
+    font-family: 'open sans','HelveticaNeue','Helvetica Neue','Helvetica-Neue',Helvetica,Arial,sans-serif;
+}
+
+#header {
+    display:block;
+}
+
+#header h1 {
+    color: #1d4f95;
+}
+
+#dictionary-list, #entry-list {
+    background-color: #ffe800;
+    color: #1d4f95;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding-left: 25px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+.list-group-item.active {
+    background-color: #1d4f95;
+}
+
+.btn-primary {
+    background-color: #1d4f95;
+}
+
+#footerButtons button {
+    margin: 12px;
+}
+
+    </style>
     </head>
     <body>
-        Hello, world!
+        <div class="container" id="app">
+            <div class="row" id="header">
+                <img src="img/logo.jpg" alt="ELEXIS Logo"><br/>
+                <h1>ELEXIS Dictionary Service</h1>
+            </div>
+            <div class="row" id="dictionary-list">
+                <h3>Dictionaries</h3>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <ul class="list-group">
+                        <li class="list-group-item" v-for="dict in dictionaries" 
+                            v-bind:class="{active: dict === activeDict}"
+                            v-on:click="selectDict(dict)">{{dict}}</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="row" id="entry-list">
+                <h3>Entries</h3>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <ul class="list-group">
+                        <li class="list-group-item" v-for="entry in entries">
+                            <span class="lemma">{{entry.lemma}}</span>
+                            (<span class="partOfSpeech" v-for="pos in entry.partOfSpeech">{{pos}}</span>)
+                            <button type="button" class="btn btn-primary float-right" 
+                                v-if="entry.formats.includes('tei')">View as TEI</button>
+                            <button type="button" class="btn btn-primary float-right" 
+                                v-if="entry.formats.includes('ontolex')">View as OntoLex</button>
+                            <button type="button" class="btn btn-primary float-right" 
+                                v-on:click="showEntry(entry.id)"
+                                v-if="entry.formats.includes('json')">View Entry</button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="row" id="footerButtons">
+                <div class="col">
+                <button type="button" class="btn btn-primary float-right" 
+                                      v-bind:class="{disabled: entries.length < 20}"
+                                      v-on:click="increaseOffset()">Next 20 Entries &raquo;</button>
+                <button type="button" class="btn btn-primary float-right" 
+                                      v-bind:class="{disabled: offset == 0}"
+                                      v-on:click="decreaseOffset()">&laquo; Previous 20 Entries</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal" tabindex="-1" role="dialog" id="entryJson">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Entry as JSON</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h5>{{entry["@id"]}}</h5>
+                        <p><b>Lemma:</b> {{entry.canonicalForm.writtenRep}} 
+                            <span v-if="entry.canonicalForm.phoneticRep">(/{{entry.canonicalForm.phoneticRep}}/)</span></p>
+                        <p><b>Part Of Speech:</b> {{entry.partOfSpeech}}</p>
+                        <p v-if="entry.otherForm">
+                            <b>Other forms:</b>
+                            <ul>
+                                <li v-for="form in entry.otherForm">{{form.writtenRep}} 
+                                    <span v-if="form.phoneticRep">(/{{form.phoneticRep}}/)</span></li>
+                            </ul>
+                        </p>
+                        <p v-if="entry.morphologicalPattern">
+                            <b>Morphology:</b> {{entry.morphologicalPattern}}</p>
+                        <p v-if="entry.etymology">
+                            <b>Etymology:</b> {{entry.etymology}}</p>
+                        <p>
+                            <b>Senses:</b>
+                            <ol>
+                                <li v-for="sense in entry.senses">{{sense.definition}} 
+                                    <span v-if="sense.reference">(<a v-bind:href="sense.reference">More Information</a>)</span></li>
+                            </ol>
+                        </p>
+                        <p v-if="entry.usage">
+                            <b>Usage Note:</b> {{entry.usage}}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <!-- development version, includes helpful console warnings -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+    <script>
+        var app = new Vue({
+            el: "#app",
+            data: {
+                "dictionaries": ["test1","test2"],
+                "entries": [],
+                "activeDict": "test1",
+                "offset": 0,
+                "entry": {"canonicalForm": { "writtenRep": "placeholder" }, "partOfSpeech": "noun"}
+            },
+            methods: {
+                selectDict: function(dict) {
+                    this.activeDict=dict;
+                    this.$http.get('list/' + dict + "?offset=0&limit=20").then(response => {
+                        this.entries = response.body;
+                    }, response => {
+                        console.log(JSON.stringify(response));
+                    });
+                },
+                queryDicts: function() {
+                    this.$http.get('dictionaries').then(response => {
+                        this.dictionaries = response.body.dictionaries;
+                        if(this.dictionaries.length > 0) {
+                            this.selectDict(this.dictionaries[0]);
+                        }
+                    }, response => {
+                        console.log(JSON.stringify(response));
+                    });
+                },
+                increaseOffset: function() {
+                    if(this.entries.length >= 20) {
+                        var newOffset = this.offset + 20;
+                        this.$http.get('list/' + this.activeDict + "?offset=" + (newOffset) + "&limit=20").then(response => {
+                            this.entries = response.body;
+                            this.offset = newOffset;
+                        }, response => {
+                            console.log(JSON.stringify(response));
+                        });
+                    }
+                },
+                decreaseOffset: function() {
+                    if(this.offset > 0) {
+                        var newOffset = this.offset - 20;
+                        this.$http.get('list/' + this.activeDict + "?offset=" + (newOffset) + "&limit=20").then(response => {
+                            this.entries = response.body;
+                            this.offset = newOffset;
+                        }, response => {
+                            console.log(JSON.stringify(response));
+                        });
+                    }
+                },
+                showEntry: function(id) {
+                    this.$http.get('json/' + this.activeDict + '/' + id).then(response => {
+                        this.entry = response.body;
+                        $('#entryJson').modal('show');
+                    }, response => {
+                        console.log(JSON.stringify(response));
+                    });
+                }
+  
+            },
+            created: function() {
+                this.queryDicts();
+            }
+        })
+    </script>
     </body>
 </html>

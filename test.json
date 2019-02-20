@@ -41,7 +41,7 @@
             "@type": "Word",
             "@id": "test",
             "language": "en",
-            "partOfSpeech": "lexinfo:adjective",
+            "partOfSpeech": "adjective",
             "canonicalForm": {
                 "writtenRep": "example"
             },

@@ -4,35 +4,64 @@ use std::collections::HashMap;
 #[derive(Clone,StateData)]
 pub struct EDSState {
     pub dictionaries : Arc<Mutex<HashMap<String,Dictionary>>>,
-    pub entries : Arc<Mutex<HashMap<String,HashMap<String,Vec<EntryContent>>>>>,
-    pub entries_by_id : Arc<Mutex<HashMap<String,HashMap<String,EntryContent>>>>
+    pub entries_lemmas : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
+    pub entries_forms : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
+    pub entries_id : Arc<Mutex<HashMap<String,HashMap<String,EntryContent>>>>
 }
 
 impl EDSState {
     pub fn new(dictionaries : HashMap<String, Dictionary>,
                dict_entries : HashMap<String, Vec<EntryContent>>) -> Self {
         let mut dict_entry_map = HashMap::new();
+        let mut dict_entry_map2 = HashMap::new();
         let mut entry_by_id = HashMap::new();
         for (id, entries) in dict_entries {
             let mut entry_map = HashMap::new();
             let mut eid_map = HashMap::new();
+            let mut entry_map2 = HashMap::new();
             for entry in entries {
+                eid_map.insert(entry.id.clone(), entry.clone());
                 if !entry_map.contains_key(&entry.canonical_form.written_rep) {
                     entry_map.insert(entry.canonical_form.written_rep.to_string(),
                         Vec::new());
                 }
-                eid_map.insert(entry.id.clone(), entry.clone());
                 entry_map.entry(entry.canonical_form.written_rep.clone())
-                    .and_modify(|e| e.push(entry));
+                    .and_modify(|e| e.push(entry_from_content(&entry)));
+                match entry.other_form.as_ref() {
+                    Some(of) => {
+                        for form in of {
+                            if !entry_map2.contains_key(&form.written_rep) {
+                                entry_map2.insert(form.written_rep.to_string(),
+                                    Vec::new());
+                            }
+                            entry_map.entry(form.written_rep.clone())
+                                .and_modify(|e| e.push(entry_from_content(&entry)));
+            
+                        }
+                    },
+                    None => {}
+                }
             }
             dict_entry_map.insert(id.clone(), entry_map);
+            dict_entry_map2.insert(id.clone(), entry_map2);
             entry_by_id.insert(id, eid_map);
         }
         EDSState {
             dictionaries : Arc::new(Mutex::new(dictionaries)),
-            entries : Arc::new(Mutex::new(dict_entry_map)),
-            entries_by_id : Arc::new(Mutex::new(entry_by_id))
+            entries_lemmas : Arc::new(Mutex::new(dict_entry_map)),
+            entries_forms : Arc::new(Mutex::new(dict_entry_map2)),
+            entries_id : Arc::new(Mutex::new(entry_by_id))
         }
+    }
+}
+
+fn entry_from_content(content : &EntryContent) -> Entry {
+    Entry {
+        release: Release::PUBLIC,
+        lemma: content.canonical_form.written_rep.to_string(),
+        id: content.id.to_string(),
+        part_of_speech: vec![content.part_of_speech.convert()],
+        formats: vec![Format::json]
     }
 }
 
@@ -45,9 +74,7 @@ pub struct Dictionary {
     genre : Vec<Genre>,
     license : String,
     creator : Vec<Agent>,
-    publisher : Vec<Agent>,
-    //properties : Vec<DCProperty>,
-    entries : Vec<Entry>
+    publisher : Vec<Agent>
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
@@ -89,10 +116,9 @@ pub struct DCProperty {
 pub struct Entry {
     release : Release,
     lemma : String,
-    language : String,
     id : String,
-    part_of_speech : Vec<PartOfSpeech>,
-    formats : Vec<String>
+    pub part_of_speech : Vec<PartOfSpeech>,
+    formats : Vec<Format>
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
@@ -115,6 +141,14 @@ pub enum PartOfSpeech {
     SYM,
     VERB,
     X
+}
+
+#[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum Format {
+    tei,
+    ontolex,
+    json
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
@@ -149,21 +183,21 @@ pub struct Form {
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
 pub enum JsonPartOfSpeech {
-    #[serde(rename="lexinfo:adjective")] Adjective,
-    #[serde(rename="lexinfo:adposition")] Adposition,
-    #[serde(rename="lexinfo:adverb")] Adverb,
-    #[serde(rename="lexinfo:auxiliary")] Auxiliary,
-    #[serde(rename="lexinfo:coordinatingConjunction")] CoordinatingConjunction,
-    #[serde(rename="lexinfo:determiner")] Determiner,
-    #[serde(rename="lexinfo:interjection")] Interjection,
-    #[serde(rename="lexinfo:commonNoun")] CommonNoun,
-    #[serde(rename="lexinfo:numeral")] Numeral,
-    #[serde(rename="lexinfo:particle")] Particle,
-    #[serde(rename="lexinfo:properNoun")] ProperNoun,
-    #[serde(rename="lexinfo:punctuation")] Punctuation,
-    #[serde(rename="lexinfo:subordinatingConjunction")] SubordinatingConjunction,
-    #[serde(rename="lexinfo:symbol")] Symbol,
-    #[serde(rename="lexinfo:verb")] Verb,
+    #[serde(rename="adjective")] Adjective,
+    #[serde(rename="adposition")] Adposition,
+    #[serde(rename="adverb")] Adverb,
+    #[serde(rename="auxiliary")] Auxiliary,
+    #[serde(rename="coordinatingConjunction")] CoordinatingConjunction,
+    #[serde(rename="determiner")] Determiner,
+    #[serde(rename="interjection")] Interjection,
+    #[serde(rename="commonNoun")] CommonNoun,
+    #[serde(rename="numeral")] Numeral,
+    #[serde(rename="particle")] Particle,
+    #[serde(rename="properNoun")] ProperNoun,
+    #[serde(rename="punctuation")] Punctuation,
+    #[serde(rename="subordinatingConjunction")] SubordinatingConjunction,
+    #[serde(rename="symbol")] Symbol,
+    #[serde(rename="verb")] Verb,
     #[serde(rename="other")] Other
 }
 

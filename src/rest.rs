@@ -3,7 +3,7 @@ use gotham::state::State;
 use hyper::Body;
 use gotham::helpers::http::response::create_response;
 use mime;
-use crate::state::{EDSState, EntryContent};
+use crate::state::{EDSState, Entry};
 use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams};
 use gotham::state::FromState;
 
@@ -59,9 +59,9 @@ pub fn list(state : State) -> (State, Response<Body>) {
     let params1 = ListPathParams::borrow_from(&state);
     let params2 = ListQueryParams::borrow_from(&state);
 
-    let res = match data.entries.lock().unwrap().get(&params1.dictionary) {
+    let res = match data.entries_lemmas.lock().unwrap().get(&params1.dictionary) {
         Some(emap) => {
-            let entries : Vec<EntryContent> = match params2.offset {
+            let entries : Vec<Entry> = match params2.offset {
                 Some(offset) => {
                     match params2.limit {
                         Some(limit) => 
@@ -102,26 +102,40 @@ pub fn lookup(state : State) -> (State, Response<Body>) {
         let params1 = LookupPathParams::borrow_from(&state);
         let params2 = LookupQueryParams::borrow_from(&state);
 
-        let dict = data.entries.lock().unwrap();
+        let dict = data.entries_lemmas.lock().unwrap();
+        let dict2 = data.entries_forms.lock().unwrap();
         match dict.get(&params1.dictionary).and_then(|x| x.get(&params1.headword)) {
             Some(emap) => {
-                let i1 = emap.iter()//.filter(|e| params2.language.is_none() || e.language == params2.language.unwrap())
-                    .filter(|e| params2.part_of_speech.is_none() || Some(e.part_of_speech.convert()) == params2.part_of_speech);
-                let entries : Vec<EntryContent> = match params2.offset {
+                let i1 = emap.iter()
+                    .filter(|e| params2.part_of_speech.is_none() || e.part_of_speech.contains(params2.part_of_speech.as_ref().unwrap()));
+                let el = Vec::new();
+                let i2 = (if params2.inflected == Some(true) {
+                    match dict2.get(&params1.dictionary).and_then(|x| x.get(&params1.headword)) {
+                        Some(emap2) => {
+                            emap2.iter()
+                        },
+                        None => {
+                            el.iter()
+                        }
+                    }
+                } else {
+                    el.iter()
+                }).filter(|e| params2.part_of_speech.is_none() || e.part_of_speech.contains(params2.part_of_speech.as_ref().unwrap()));
+                let entries : Vec<Entry> = match params2.offset {
                     Some(offset) => {
                         match params2.limit {
                             Some(limit) => 
-                                i1.skip(offset).take(limit).map(|x| x.clone()).collect(),
+                                i1.chain(i2).skip(offset).take(limit).map(|x| x.clone()).collect(),
                             None =>
-                                i1.skip(offset).map(|x| x.clone()).collect()
+                                i1.chain(i2).skip(offset).map(|x| x.clone()).collect()
                         }
                     },
                     None =>
                         match params2.limit {
                             Some(limit) => 
-                                i1.take(limit).map(|x| x.clone()).collect(),
+                                i1.chain(i2).take(limit).map(|x| x.clone()).collect(),
                             None =>
-                                i1.map(|x| x.clone()).collect()
+                                i1.chain(i2).map(|x| x.clone()).collect()
                         }
                 };
                 create_response(
@@ -147,7 +161,7 @@ pub fn entry_json(state : State) -> (State, Response<Body>) {
     let res = {
         let data = EDSState::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
-        match data.entries_by_id.lock().unwrap().get(&params1.dictionary).and_then(|x| x.get(&params1.id)) {
+        match data.entries_id.lock().unwrap().get(&params1.dictionary).and_then(|x| x.get(&params1.id)) {
             Some(entry) => {
                 create_response(
                     &state,

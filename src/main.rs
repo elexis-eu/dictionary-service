@@ -23,6 +23,8 @@ use gotham::pipeline::single_middleware;
 use http::Method;
 use http::{Response, StatusCode};
 
+use mime::Mime;
+
 use hyper::Body;
 
 use clap::{App, Arg};
@@ -60,6 +62,8 @@ fn router(state : EDSState) -> Router {
         route.get("/tei/:dictionary/:id")
             .with_path_extractor::<EntryPathParams>()
             .to(rest::entry_tei);
+        route.get("/img/logo.jpg")
+            .to(logo);
     })
 }
 
@@ -84,7 +88,6 @@ struct LookupPathParams {
 #[derive(Deserialize, StateData, StaticResponseExtender)]
 #[serde(rename_all = "camelCase")]
 struct LookupQueryParams {
-    language : Option<String>, // TODO: This is stupid! The dictionary only has one language!
     part_of_speech : Option<PartOfSpeech>,
     limit : Option<usize>,
     offset : Option<usize>,
@@ -97,6 +100,12 @@ struct EntryPathParams {
 }
 
 
+pub fn logo(state : State) -> (State, (Mime, Body)) {
+    let mut v = Vec::new();
+    v.extend(include_bytes!("img/logo.jpg").iter());
+    let res = (mime::IMAGE_JPEG, Body::from(v));
+    (state, res)
+}
 
 pub fn index(state : State) -> (State, Response<Body>) {
     (state, Response::builder()
