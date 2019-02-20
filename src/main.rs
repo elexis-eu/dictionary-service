@@ -12,7 +12,7 @@ extern crate clap;
 extern crate xml;
 
 mod rest;
-mod state;
+mod model;
 mod tei;
 
 use gotham::state::State;
@@ -34,10 +34,10 @@ use clap::{App, Arg};
 use std::fs::File;
 use std::collections::HashMap;
 
-use crate::state::{EDSState, Dictionary, JsonEntry, PartOfSpeech};
+use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech};
 
-fn router(state : EDSState) -> Router {
-    let middleware = StateMiddleware::new(state);
+fn router(model : EDSState) -> Router {
+    let middleware = StateMiddleware::new(model);
     let pipeline = single_middleware(middleware);
     let (chain, pipelines) = single_pipeline(pipeline);
 

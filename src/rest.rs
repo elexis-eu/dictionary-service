@@ -3,7 +3,7 @@ use gotham::state::State;
 use hyper::Body;
 use gotham::helpers::http::response::create_response;
 use mime;
-use crate::state::{EDSState, Entry, EntryContent};
+use crate::model::{EDSState, Entry, EntryContent};
 use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams};
 use gotham::state::FromState;
 

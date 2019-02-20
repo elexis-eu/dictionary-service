@@ -1,5 +1,5 @@
 use std::io::Read;
-use crate::state::{EDSState, Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech};
+use crate::model::{EDSState, Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech};
 
 use xml::reader::{EventReader, XmlEvent};
 use xml::name::OwnedName;
