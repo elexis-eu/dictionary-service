@@ -1,6 +1,28 @@
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
+/// The backend access to a dictionary
+pub trait Backend {
+    /// List the identifiers for all dictionaries
+    fn dictionaries(&self) -> Vec<String>;
+    /// Obtain the metadata about a given dictionary
+    fn about(&self, dictionary : &str) -> Option<Dictionary>;
+    /// List all entries in a dictrionary
+    fn list(&self, dictionary : &str, offset : Option<usize>, 
+            limit : Option<usize>) -> Option<Vec<Entry>>;
+    /// Search the dictionary by headword
+    fn lookup(&self, dictionary : &str, headword : &str,
+              offset : Option<usize>, limit : Option<usize>,
+              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Option<Vec<Entry>>;
+    /// Get the content as Json
+    fn entry_json(&self, dictionary : &str, id : &str) -> Option<JsonEntry>;
+    /// Get the content as OntoLex
+    fn entry_ontolex(&self, dictionary : &str, id : &str) -> Option<String>;
+    /// Get the content as TEI
+    fn entry_tei(&self, dictionary : &str, id : &str) -> Option<String>;
+}
+
+
 #[derive(Clone,StateData)]
 pub struct EDSState {
     pub dictionaries : Arc<Mutex<HashMap<String,Dictionary>>>,
@@ -53,6 +75,98 @@ impl EDSState {
             entries_id : Arc::new(Mutex::new(entry_by_id))
         }
     }
+}
+
+impl Backend for EDSState {
+    fn dictionaries(&self) -> Vec<String> {
+        self.dictionaries.lock().unwrap().keys().map(|x| x.to_string()).collect()
+    }
+    fn about(&self, dictionary : &str) -> Option<Dictionary> {
+        self.dictionaries.lock().unwrap().get(dictionary).map(|x| x.clone())
+    }   
+    fn list(&self, dictionary : &str, offset : Option<usize>, 
+            limit : Option<usize>) -> Option<Vec<Entry>> {
+        match self.entries_lemmas.lock().unwrap().get(dictionary) {
+            Some(emap) => {
+                let entries : Vec<Entry> = match offset {
+                    Some(offset) => {
+                        match limit {
+                            Some(limit) => 
+                                emap.values().flat_map(|x| x).skip(offset).take(limit).map(|x| x.clone()).collect(),
+                            None =>
+                                emap.values().flat_map(|x| x).skip(offset).map(|x| x.clone()).collect()
+                        }
+                    },
+                    None =>
+                        match limit {
+                            Some(limit) => 
+                                emap.values().flat_map(|x| x).take(limit).map(|x| x.clone()).collect(),
+                            None =>
+                                emap.values().flat_map(|x| x).map(|x| x.clone()).collect()
+                        }
+                };
+                Some(entries)
+            },
+            None => {
+                None
+            }
+        }
+    }
+    fn lookup(&self, dictionary : &str, headword : &str,
+              offset : Option<usize>, limit : Option<usize>,
+              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Option<Vec<Entry>> {
+        let dict = self.entries_lemmas.lock().unwrap();
+        let dict2 = self.entries_forms.lock().unwrap();
+        match dict.get(dictionary).and_then(|x| x.get(headword)) {
+            Some(emap) => {
+                let i1 = emap.iter()
+                    .filter(|e| part_of_speech.is_none() || e.part_of_speech.contains(part_of_speech.as_ref().unwrap()));
+                let el = Vec::new();
+                let i2 = (if inflected {
+                    match dict2.get(dictionary).and_then(|x| x.get(headword)) {
+                        Some(emap2) => {
+                            emap2.iter()
+                        },
+                        None => {
+                            el.iter()
+                        }
+                    }
+                } else {
+                    el.iter()
+                }).filter(|e| part_of_speech.is_none() || e.part_of_speech.contains(part_of_speech.as_ref().unwrap()));
+                let entries : Vec<Entry> = match offset {
+                    Some(offset) => {
+                        match limit {
+                            Some(limit) => 
+                                i1.chain(i2).skip(offset).take(limit).map(|x| x.clone()).collect(),
+                            None =>
+                                i1.chain(i2).skip(offset).map(|x| x.clone()).collect()
+                        }
+                    },
+                    None =>
+                        match limit {
+                            Some(limit) => 
+                                i1.chain(i2).take(limit).map(|x| x.clone()).collect(),
+                            None =>
+                                i1.chain(i2).map(|x| x.clone()).collect()
+                        }
+                };
+                Some(entries)
+            }
+            None => {
+                None
+            }
+        }
+    }
+    fn entry_json(&self, dictionary : &str, id : &str) -> Option<JsonEntry> {
+        self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
+            Some(EntryContent::Json(entry)) => Some(entry.clone()),
+            _ => None
+        })
+    }
+    fn entry_ontolex(&self, _dictionary : &str, _id : &str) -> Option<String> { None }
+    fn entry_tei(&self, _dictionary : &str, _id : &str) -> Option<String> { None }
+
 }
 
 fn entry_from_content(content : &JsonEntry) -> Entry {

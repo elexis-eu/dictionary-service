@@ -3,7 +3,7 @@ use gotham::state::State;
 use hyper::Body;
 use gotham::helpers::http::response::create_response;
 use mime;
-use crate::model::{EDSState, Entry, EntryContent};
+use crate::model::{EDSState, Backend};
 use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams};
 use gotham::state::FromState;
 
@@ -17,7 +17,7 @@ pub fn dictionaries(state : State) -> (State, Response<Body>) {
     let data = EDSState::borrow_from(&state);
 
     let list = DictionaryList {
-        dictionaries : data.dictionaries.lock().unwrap().keys().map(|x| x.to_string()).collect()
+        dictionaries : data.dictionaries()
     };
 
     let res = create_response(
@@ -34,13 +34,13 @@ pub fn about(state : State) -> (State, Response<Body>) {
     let data = EDSState::borrow_from(&state);
     let params = AboutParams::borrow_from(&state);
 
-    let res = match data.dictionaries.lock().unwrap().get(&params.dictionary) {
+    let res = match data.about(&params.dictionary) {
         Some(dict) => {
             create_response(
                 &state,
                 StatusCode::OK,
                 mime::APPLICATION_JSON,
-                serde_json::to_vec(dict).expect("Cannot serialize metadata"))
+                serde_json::to_vec(&dict).expect("Cannot serialize metadata"))
         },
         None => {
             create_response(
@@ -59,25 +59,8 @@ pub fn list(state : State) -> (State, Response<Body>) {
     let params1 = ListPathParams::borrow_from(&state);
     let params2 = ListQueryParams::borrow_from(&state);
 
-    let res = match data.entries_lemmas.lock().unwrap().get(&params1.dictionary) {
-        Some(emap) => {
-            let entries : Vec<Entry> = match params2.offset {
-                Some(offset) => {
-                    match params2.limit {
-                        Some(limit) => 
-                            emap.values().flat_map(|x| x).skip(offset).take(limit).map(|x| x.clone()).collect(),
-                        None =>
-                            emap.values().flat_map(|x| x).skip(offset).map(|x| x.clone()).collect()
-                    }
-                },
-                None =>
-                    match params2.limit {
-                        Some(limit) => 
-                            emap.values().flat_map(|x| x).take(limit).map(|x| x.clone()).collect(),
-                        None =>
-                            emap.values().flat_map(|x| x).map(|x| x.clone()).collect()
-                    }
-            };
+    let res = match data.list(&params1.dictionary, params2.offset, params2.limit) {
+        Some(entries) => {
             create_response(
                 &state,
                 StatusCode::OK,
@@ -102,42 +85,10 @@ pub fn lookup(state : State) -> (State, Response<Body>) {
         let params1 = LookupPathParams::borrow_from(&state);
         let params2 = LookupQueryParams::borrow_from(&state);
 
-        let dict = data.entries_lemmas.lock().unwrap();
-        let dict2 = data.entries_forms.lock().unwrap();
-        match dict.get(&params1.dictionary).and_then(|x| x.get(&params1.headword)) {
-            Some(emap) => {
-                let i1 = emap.iter()
-                    .filter(|e| params2.part_of_speech.is_none() || e.part_of_speech.contains(params2.part_of_speech.as_ref().unwrap()));
-                let el = Vec::new();
-                let i2 = (if params2.inflected == Some(true) {
-                    match dict2.get(&params1.dictionary).and_then(|x| x.get(&params1.headword)) {
-                        Some(emap2) => {
-                            emap2.iter()
-                        },
-                        None => {
-                            el.iter()
-                        }
-                    }
-                } else {
-                    el.iter()
-                }).filter(|e| params2.part_of_speech.is_none() || e.part_of_speech.contains(params2.part_of_speech.as_ref().unwrap()));
-                let entries : Vec<Entry> = match params2.offset {
-                    Some(offset) => {
-                        match params2.limit {
-                            Some(limit) => 
-                                i1.chain(i2).skip(offset).take(limit).map(|x| x.clone()).collect(),
-                            None =>
-                                i1.chain(i2).skip(offset).map(|x| x.clone()).collect()
-                        }
-                    },
-                    None =>
-                        match params2.limit {
-                            Some(limit) => 
-                                i1.chain(i2).take(limit).map(|x| x.clone()).collect(),
-                            None =>
-                                i1.chain(i2).map(|x| x.clone()).collect()
-                        }
-                };
+        match data.lookup(&params1.dictionary, &params1.headword,
+                          params2.offset, params2.limit,
+                          params2.part_of_speech.clone(), params2.inflected.unwrap_or(false)) {
+            Some(entries) => {
                 create_response(
                     &state,
                     StatusCode::OK,
@@ -161,20 +112,13 @@ pub fn entry_json(state : State) -> (State, Response<Body>) {
     let res = {
         let data = EDSState::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
-        match data.entries_id.lock().unwrap().get(&params1.dictionary).and_then(|x| x.get(&params1.id)) {
-            Some(EntryContent::Json(entry)) => {
+        match data.entry_json(&params1.dictionary, &params1.id) {
+            Some(entry) => {
                 create_response(
                     &state,
                     StatusCode::OK,
                     mime::APPLICATION_JSON,
-                    serde_json::to_vec(entry).expect("Cannot serialize entry"))
-            },
-            Some(_) => {
-                create_response(
-                    &state,
-                    StatusCode::NOT_FOUND,
-                    mime::TEXT_PLAIN,
-                    "Entry not available as Json")
+                    serde_json::to_vec(&entry).expect("Cannot serialize entry"))
             },
             None => {
                 create_response(
