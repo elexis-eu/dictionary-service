@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml"
+schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<?xml-model href="../../Schemas/TEILex0/out/TEILex0-ODD.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <fileDesc>
+            <titleStmt>
+                <title>This is an example dictionary</title>
+            </titleStmt>
+            <publicationStmt>
+                <publisher>Example Publishing</publisher>
+            </publicationStmt>
+            <sourceDesc>
+                <author>Max Lexicographer</author>
+                <!-- Author affiliation -->
+                <!-- Author email -->
+            </sourceDesc>
+        </fileDesc>
+        <encodingDesc>
+            <ab>Examples are in TEI-Lex0</ab>
+        </encodingDesc>
+    </teiHeader>
+    <text>
+        <body>
+            <entry xml:lang="en" xml:id="test">
+                <form type="lemma">
+                    <orth>girl</orth>
+                </form>
+                <gramGrp>
+                    <gram type="pos" norm="NOUN">noun</gram>
+                </gramGrp>
+                <senses>
+                    <sense>
+                        <def>young female</def>
+                    </sense>
+                </senses>
+            </entry>
+        </body>
+    </text>
+</TEI>
+
+
+
+
