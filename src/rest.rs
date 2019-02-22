@@ -135,11 +135,24 @@ pub fn entry_json(state : State) -> (State, Response<Body>) {
 /// Handle the "Entry as RDF" request
 pub fn entry_ontolex(state : State) -> (State, Response<Body>) {
     let res = {
-        create_response(
-            &state,
-            StatusCode::NOT_IMPLEMENTED,
-            mime::TEXT_PLAIN,
-            "TODO")
+        let data = EDSState::borrow_from(&state);
+        let params1 = EntryPathParams::borrow_from(&state);
+        match data.entry_ontolex(&params1.dictionary, &params1.id) {
+            Some(entry) => {
+                create_response(
+                    &state,
+                    StatusCode::OK,
+                    "text/turtle".parse().unwrap(),
+                    serde_json::to_vec(&entry).expect("Cannot serialize entry"))
+            },
+            None => {
+                create_response(
+                    &state,
+                    StatusCode::NOT_FOUND,
+                    mime::TEXT_PLAIN,
+                    "Dictionary or entry not found")
+            }
+        }
     };
     (state, res)
 }
@@ -147,11 +160,24 @@ pub fn entry_ontolex(state : State) -> (State, Response<Body>) {
 /// Handle the "Entry as TEI" request
 pub fn entry_tei(state : State) -> (State, Response<Body>) {
     let res = {
-        create_response(
-            &state,
-            StatusCode::NOT_IMPLEMENTED,
-            mime::TEXT_PLAIN,
-            "TODO")
+        let data = EDSState::borrow_from(&state);
+        let params1 = EntryPathParams::borrow_from(&state);
+        match data.entry_tei(&params1.dictionary, &params1.id) {
+            Some(entry) => {
+                create_response(
+                    &state,
+                    StatusCode::OK,
+                    mime::TEXT_XML,
+                    serde_json::to_vec(&entry).expect("Cannot serialize entry"))
+            },
+            None => {
+                create_response(
+                    &state,
+                    StatusCode::NOT_FOUND,
+                    mime::TEXT_PLAIN,
+                    "Dictionary or entry not found")
+            }
+        }
     };
     (state, res)
 }
