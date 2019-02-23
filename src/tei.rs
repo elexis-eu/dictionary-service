@@ -357,4 +357,10 @@ mod tests {
 
         parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new());
     }
+
+    #[test]
+    fn test_example() {
+        let x : &[u8] = include_bytes!("../examples/example-tei.xml");
+        parse(x, "exmaple-tei", Release::PUBLIC, Vec::new());
+    }
 }
