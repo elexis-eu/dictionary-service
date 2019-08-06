@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 /// The backend access to a dictionary
 pub trait Backend {
@@ -33,7 +34,7 @@ pub struct EDSState {
 
 impl EDSState {
     pub fn new(dictionaries : HashMap<String, Dictionary>,
-               dict_entries : HashMap<String, Vec<JsonEntry>>) -> Self {
+               dict_entries : HashMap<String, Vec<EntryContent>>) -> Self {
         let mut dict_entry_map = HashMap::new();
         let mut dict_entry_map2 = HashMap::new();
         let mut entry_by_id = HashMap::new();
@@ -42,27 +43,21 @@ impl EDSState {
             let mut eid_map = HashMap::new();
             let mut entry_map2 = HashMap::new();
             for entry in entries {
-                eid_map.insert(entry.id.clone(), EntryContent::Json(entry.clone()));
-                if !entry_map.contains_key(&entry.canonical_form.written_rep) {
-                    entry_map.insert(entry.canonical_form.written_rep.to_string(),
+                eid_map.insert(entry.id().to_string(), entry.clone());
+                if !entry_map.contains_key(entry.lemma()) {
+                    entry_map.insert(entry.lemma().to_string(),
                         Vec::new());
                 }
-                entry_map.entry(entry.canonical_form.written_rep.clone())
+                entry_map.entry(entry.lemma().to_string())
                     .and_modify(|e| e.push(entry_from_content(&entry)));
-                match entry.other_form.as_ref() {
-                    Some(of) => {
-                        for form in of {
-                            if !entry_map2.contains_key(&form.written_rep) {
-                                entry_map2.insert(form.written_rep.to_string(),
-                                    Vec::new());
-                            }
-                            entry_map.entry(form.written_rep.clone())
-                                .and_modify(|e| e.push(entry_from_content(&entry)));
-            
-                        }
-                    },
-                    None => {}
-                }
+                for var in entry.variants() {
+                    if !entry_map2.contains_key(&var) {
+                        entry_map2.insert(var.to_string(),
+                        Vec::new());
+                    }
+                    entry_map.entry(var.clone())
+                        .and_modify(|e| e.push(entry_from_content(&entry)));
+                    }
             }
             dict_entry_map.insert(id.clone(), entry_map);
             dict_entry_map2.insert(id.clone(), entry_map2);
@@ -169,13 +164,13 @@ impl Backend for EDSState {
 
 }
 
-fn entry_from_content(content : &JsonEntry) -> Entry {
+fn entry_from_content(content : &EntryContent) -> Entry {
     Entry {
         release: Release::PUBLIC,
-        lemma: content.canonical_form.written_rep.to_string(),
-        id: content.id.to_string(),
-        part_of_speech: vec![content.part_of_speech.convert()],
-        formats: vec![Format::json]
+        lemma: content.lemma().to_string(),
+        id: content.id().to_string(),
+        part_of_speech: content.pos(),
+        formats: vec![content.format()]
     }
 }
 
@@ -214,6 +209,20 @@ pub enum Release {
     PRIVATE
 }
 
+impl FromStr for Release {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Release, String> {
+        match s {
+            "PUBLIC" => Ok(Release::PUBLIC),
+            "NONCOMMERCIAL" => Ok(Release::NONCOMMERCIAL),
+            "RESEARCH" => Ok(Release::RESEARCH),
+            "PRIVATE" => Ok(Release::PRIVATE),
+            _ => Err(format!("Bad value for release: {}", s))
+        }
+    }
+}
+
 #[derive(Clone,Debug,Serialize,Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum Genre {
@@ -225,6 +234,24 @@ pub enum Genre {
     ort,
     trm
 }
+
+impl FromStr for Genre {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Genre, String> {
+        match s {
+            "gen" => Ok(Genre::gen),
+            "lrn" => Ok(Genre::lrn),
+            "ety" => Ok(Genre::ety),
+            "spe" => Ok(Genre::spe),
+            "his" => Ok(Genre::his),
+            "ort" => Ok(Genre::ort),
+            "trm" => Ok(Genre::trm),
+            _ => Err(format!("Not a valid genre: {}", s))
+        }
+    }
+} 
+
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
 pub struct Agent {
@@ -301,8 +328,52 @@ pub enum Format {
 #[derive(Clone,Debug,Deserialize)]
 pub enum EntryContent {
     Json(JsonEntry),
-    Tei(String),
-    OntoLex(String)
+    Tei(String, String, Vec<PartOfSpeech>, Vec<String>, String),
+    OntoLex(String, String, Vec<PartOfSpeech>, Vec<String>, String)
+}
+
+impl EntryContent {
+    fn id(&self) -> &str {
+        match self {
+            EntryContent::Json(j) => &j.id,
+            EntryContent::Tei(id,_,_,_,_) => id,
+            EntryContent::OntoLex(id,_,_,_,_) => id
+        }
+    }
+
+    fn lemma(&self) -> &str {
+        match self {
+            EntryContent::Json(j) => &j.canonical_form.written_rep,
+            EntryContent::Tei(_,lemma,_,_,_) => lemma,
+            EntryContent::OntoLex(_,lemma,_,_,_) => lemma
+        }
+    }
+
+    fn pos(&self) -> Vec<PartOfSpeech> {
+        match self { 
+            EntryContent::Json(j) => vec![JsonPartOfSpeech::convert(&j.part_of_speech)],
+            EntryContent::Tei(_,_,pos,_,_) => pos.clone(),
+            EntryContent::OntoLex(_,_,pos,_,_) => pos.clone()
+        }
+    }
+    fn format(&self) -> Format {
+        match self {
+            EntryContent::Json(_) => Format::json,
+            EntryContent::Tei(_,_,_,_,_) => Format::tei,
+            EntryContent::OntoLex(_,_,_,_,_) => Format::ontolex
+        }
+    }
+    fn variants(&self) -> Vec<String> {
+        match self {
+            EntryContent::Json(j) => if let Some(ref forms) = j.other_form {
+                forms.iter().map(|x| x.written_rep.to_string()).collect()
+            } else {
+                Vec::new()
+            },
+            EntryContent::Tei(_,_,_,vars,_) => vars.clone(),
+            EntryContent::OntoLex(_,_,_,vars,_) => vars.clone()
+        }
+    }
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]

@@ -33,8 +33,9 @@ use clap::{App, Arg};
 
 use std::fs::File;
 use std::collections::HashMap;
+use std::str::FromStr;
 
-use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech};
+use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech, EntryContent};
 
 fn router(model : EDSState) -> Router {
     let middleware = StateMiddleware::new(model);
@@ -119,27 +120,66 @@ pub fn index(state : State) -> (State, Response<Body>) {
 fn main() {
     let matches = App::new("ELEXIS Dictionary Service")
                     .version("0.1")
-                    .author("John P. McCrae <john@mccr.ae>")
+                    .author("John P. McCrae <john@mccr.ae>")                    
                     .about("Server for hosting dictionaries so they may be accessed by the Dictionary Matrix")
                     .arg(Arg::with_name("data")
-                         .help("The Json data to host")
+                         .help("The data to host")
                          .required(true)
                          .index(1))
+                    .arg(Arg::with_name("format")
+                        .help("The format of the input")
+                        .value_name("json|ttl|tei")
+                        .short("f")
+                        .long("format")
+                        .takes_value(true))
+                    .arg(Arg::with_name("release")
+                        .help("The release level of the resource")
+                        .takes_value(true)
+                        .long("release")
+                        .value_name("PUBLIC|NONCOMMERCIAL|RESEARCH|PRIVATE"))
+                    .arg(Arg::with_name("genre")
+                        .help("The genre(s) of the dataset (comma separated)")
+                        .takes_value(true)
+                        .use_delimiter(true)
+                        .long("genre")
+                        .value_name("gen|lrn|ety|spe|his|ort|trm"))
+                    .arg(Arg::with_name("id")
+                        .help("The identifier of the dataset")
+                        .long("id")
+                        .takes_value(true))                        
                     .get_matches();
 
-    let meta : &str = matches.value_of("data").expect("Meta paramter is required");
-    let dictionaries : HashMap<String, DictJson> = serde_json::from_reader(File::open(meta)
-                                               .expect("Could not open meta file"))
-        .expect("Could not read dictionary file");
-    let mut dict_map = HashMap::new();
-    let mut entry_map = HashMap::new();
-    for (id, dj) in dictionaries {
-        dict_map.insert(id.clone(), dj.meta);
-        entry_map.insert(id, dj.entries);
-    }
+    let format = matches.value_of("data").unwrap_or("");
+    let data : &str = matches.value_of("data").expect("The data paramter is required");
+    
+    let state = if format == "json" || data.ends_with(".json") {
+        let dictionaries : HashMap<String, DictJson> = serde_json::from_reader(
+            File::open(data).expect("Could not open data file")) .expect("Could not read dictionary file");
+        let mut dict_map = HashMap::new();
+        let mut entry_map = HashMap::new();
+        for (id, dj) in dictionaries {
+            dict_map.insert(id.clone(), dj.meta);
+            entry_map.insert(id, dj.entries.into_iter().map(|x| EntryContent::Json(x)).collect());
+        }
+        EDSState::new(dict_map, entry_map)
+    } else if format == "tei" || data.ends_with("tei") || data.ends_with("xml") {
+        let release = model::Release::from_str(matches.value_of("release").expect("Release is required for TEI files")).unwrap();
+        let mut genres = Vec::new();
+        if let Some(gs) = matches.values_of("genre") {
+            for g in gs {
+                genres.push(model::Genre::from_str(g).unwrap());
+            }
+        };
+        let id = matches.value_of("id").expect("ID is required for TEI files");
 
+        tei::parse(File::open(data).expect("Could not open data file"), 
+                id, release, genres)
+    } else {
+        panic!("Unsupported format");
+    };
     let addr = "127.0.0.1:8000";
-    gotham::start(addr, router(EDSState::new(dict_map, entry_map)));
+    eprintln!("Starting server at {}", addr);
+    gotham::start(addr, router(state));
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]

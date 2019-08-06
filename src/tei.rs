@@ -9,7 +9,7 @@ use xml::escape::escape_str_attribute;
 
 use std::collections::{HashMap, HashSet};
 
-fn parse<R : Read>(input : R, id : &str, release : Release,
+pub fn parse<R : Read>(input : R, id : &str, release : Release,
                    genre : Vec<Genre>) -> EDSState {
     let parser = EventReader::new(input);
 
@@ -69,7 +69,7 @@ fn parse<R : Read>(input : R, id : &str, release : Release,
                                                   x.value == "lemma") {
                         state = State::Lemma
                     }
-                    if name.local_name == "pos" || name.local_name == "gramGrp"
+                    if name.local_name == "pos" || name.local_name == "gram"
                         && attributes.iter().any(|x| x.name.local_name == "type" &&
                                                  x.value == "pos") {
                         state = State::Pos;
@@ -182,7 +182,7 @@ fn parse<R : Read>(input : R, id : &str, release : Release,
 }
 
 fn extend_content_tag(content : &mut String, name : OwnedName, 
-                      attributes : Vec<OwnedAttribute>, namespace : Namespace) {
+                      attributes : Vec<OwnedAttribute>, _namespace : Namespace) {
     content.push_str("<");
     match name.prefix {
         Some(n) => {
@@ -361,6 +361,10 @@ mod tests {
     #[test]
     fn test_example() {
         let x : &[u8] = include_bytes!("../examples/example-tei.xml");
-        parse(x, "exmaple-tei", Release::PUBLIC, Vec::new());
+        let state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new());
+        assert_eq!(state.dictionaries.lock().unwrap().len(), 1);
+        assert!(state.entries_lemmas.lock().unwrap().contains_key("girl"))
+
     }
+
 }
