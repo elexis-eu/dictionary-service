@@ -20,6 +20,7 @@ mod rest;
 mod model;
 mod tei;
 mod rdf;
+mod sqlite;
 
 use gotham::state::State;
 use gotham::router::Router;

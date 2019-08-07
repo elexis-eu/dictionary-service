@@ -5,31 +5,46 @@ use std::str::FromStr;
 /// The backend access to a dictionary
 pub trait Backend {
     /// List the identifiers for all dictionaries
-    fn dictionaries(&self) -> Vec<String>;
+    fn dictionaries(&self) -> Result<Vec<String>,BackendError>;
     /// Obtain the metadata about a given dictionary
-    fn about(&self, dictionary : &str) -> Option<Dictionary>;
+    fn about(&self, dictionary : &str) -> Result<Dictionary,BackendError>;
     /// List all entries in a dictrionary
     fn list(&self, dictionary : &str, offset : Option<usize>, 
-            limit : Option<usize>) -> Option<Vec<Entry>>;
+            limit : Option<usize>) -> Result<Vec<Entry>,BackendError>;
     /// Search the dictionary by headword
     fn lookup(&self, dictionary : &str, headword : &str,
               offset : Option<usize>, limit : Option<usize>,
-              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Option<Vec<Entry>>;
+              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Result<Vec<Entry>,BackendError>;
     /// Get the content as Json
-    fn entry_json(&self, dictionary : &str, id : &str) -> Option<JsonEntry>;
+    fn entry_json(&self, dictionary : &str, id : &str) -> Result<JsonEntry,BackendError>;
     /// Get the content as OntoLex
-    fn entry_ontolex(&self, dictionary : &str, id : &str) -> Option<String>;
+    fn entry_ontolex(&self, dictionary : &str, id : &str) -> Result<String,BackendError>;
     /// Get the content as TEI
-    fn entry_tei(&self, dictionary : &str, id : &str) -> Option<String>;
+    fn entry_tei(&self, dictionary : &str, id : &str) -> Result<String,BackendError>;
+}
+
+quick_error! {
+    #[derive(Debug)]
+    pub enum BackendError {
+        NotFound {}
+        Sqlite(err : rusqlite::Error) {
+            from()
+        }
+        Other(err : Box<dyn std::error::Error>) {
+            from()
+            cause(&**err)
+            description(err.description())
+        }
+    }
 }
 
 
 #[derive(Clone,StateData)]
 pub struct EDSState {
-    pub dictionaries : Arc<Mutex<HashMap<String,Dictionary>>>,
-    pub entries_lemmas : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
-    pub entries_forms : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
-    pub entries_id : Arc<Mutex<HashMap<String,HashMap<String,EntryContent>>>>
+    dictionaries : Arc<Mutex<HashMap<String,Dictionary>>>,
+    entries_lemmas : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
+    entries_forms : Arc<Mutex<HashMap<String,HashMap<String,Vec<Entry>>>>>,
+    entries_id : Arc<Mutex<HashMap<String,HashMap<String,EntryContent>>>>
 }
 
 impl EDSState {
@@ -73,14 +88,15 @@ impl EDSState {
 }
 
 impl Backend for EDSState {
-    fn dictionaries(&self) -> Vec<String> {
-        self.dictionaries.lock().unwrap().keys().map(|x| x.to_string()).collect()
+    fn dictionaries(&self) -> Result<Vec<String>,BackendError> {
+        Ok(self.dictionaries.lock().unwrap().keys().map(|x| x.to_string()).collect())
     }
-    fn about(&self, dictionary : &str) -> Option<Dictionary> {
+    fn about(&self, dictionary : &str) -> Result<Dictionary,BackendError> {
         self.dictionaries.lock().unwrap().get(dictionary).map(|x| x.clone())
+            .ok_or(BackendError::NotFound)
     }   
-    fn list(&self, dictionary : &str, offset : Option<usize>, 
-            limit : Option<usize>) -> Option<Vec<Entry>> {
+    fn list(&self, dictionary : &str, offset : Option<usize>,
+            limit : Option<usize>) -> Result<Vec<Entry>,BackendError> {
         match self.entries_lemmas.lock().unwrap().get(dictionary) {
             Some(emap) => {
                 let entries : Vec<Entry> = match offset {
@@ -100,16 +116,16 @@ impl Backend for EDSState {
                                 emap.values().flat_map(|x| x).map(|x| x.clone()).collect()
                         }
                 };
-                Some(entries)
+                Some(entries).ok_or(BackendError::NotFound)
             },
             None => {
-                None
+                None.ok_or(BackendError::NotFound)
             }
         }
     }
     fn lookup(&self, dictionary : &str, headword : &str,
               offset : Option<usize>, limit : Option<usize>,
-              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Option<Vec<Entry>> {
+              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Result<Vec<Entry>,BackendError> {
         let dict = self.entries_lemmas.lock().unwrap();
         let dict2 = self.entries_forms.lock().unwrap();
         match dict.get(dictionary).and_then(|x| x.get(headword)) {
@@ -147,24 +163,27 @@ impl Backend for EDSState {
                         }
                 };
                 Some(entries)
+            .ok_or(BackendError::NotFound)
             }
             None => {
                 None
+            .ok_or(BackendError::NotFound)
             }
         }
     }
-    fn entry_json(&self, dictionary : &str, id : &str) -> Option<JsonEntry> {
+    fn entry_json(&self, dictionary : &str, id : &str) -> Result<JsonEntry,BackendError> {
         self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
             Some(EntryContent::Json(entry)) => Some(entry.clone()),
             _ => None
         })
+            .ok_or(BackendError::NotFound)
     }
-    fn entry_ontolex(&self, _dictionary : &str, _id : &str) -> Option<String> { None }
-    fn entry_tei(&self, dictionary : &str, id : &str) -> Option<String> { 
+    fn entry_ontolex(&self, _dictionary : &str, _id : &str) -> Result<String,BackendError> { panic!("TODO") }
+    fn entry_tei(&self, dictionary : &str, id : &str) -> Result<String,BackendError> { 
         self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
             Some(EntryContent::Tei(_,_,_,_,content)) => Some(content.clone()),
             _ => None
-        })
+        }).ok_or(BackendError::NotFound)
     }
 
 }
