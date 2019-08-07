@@ -160,7 +160,12 @@ impl Backend for EDSState {
         })
     }
     fn entry_ontolex(&self, _dictionary : &str, _id : &str) -> Option<String> { None }
-    fn entry_tei(&self, _dictionary : &str, _id : &str) -> Option<String> { None }
+    fn entry_tei(&self, dictionary : &str, id : &str) -> Option<String> { 
+        self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
+            Some(EntryContent::Tei(_,_,_,_,content)) => Some(content.clone()),
+            _ => None
+        })
+    }
 
 }
 
@@ -316,6 +321,34 @@ pub enum PartOfSpeech {
     VERB,
     X
 }
+
+impl FromStr for PartOfSpeech {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<PartOfSpeech, String> {
+        match s {
+            "ADJ" => Ok(PartOfSpeech::ADJ),
+            "ADP" => Ok(PartOfSpeech::ADP),
+            "ADV" => Ok(PartOfSpeech::ADV),
+            "AUX" => Ok(PartOfSpeech::AUX),
+            "CCONJ" => Ok(PartOfSpeech::CCONJ),
+            "DET" => Ok(PartOfSpeech::DET),
+            "INTJ" => Ok(PartOfSpeech::INTJ),
+            "NOUN" => Ok(PartOfSpeech::NOUN),
+            "NUM" => Ok(PartOfSpeech::NUM),
+            "PART" => Ok(PartOfSpeech::PART),
+            "PRON" => Ok(PartOfSpeech::PRON),
+            "PROPN" => Ok(PartOfSpeech::PROPN),
+            "PUNCT" => Ok(PartOfSpeech::PUNCT),
+            "SCONJ" => Ok(PartOfSpeech::SCONJ),
+            "SYM" => Ok(PartOfSpeech::SYM),
+            "VERB" => Ok(PartOfSpeech::VERB),
+            "X" => Ok(PartOfSpeech::X),
+            _ => Err(format!("Not a valid part of speech: {}", s))
+        }
+    }
+}
+ 
 
 #[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 #[allow(non_camel_case_types)]

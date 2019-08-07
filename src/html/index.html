@@ -8,7 +8,8 @@
 
     <!-- Bootstrap core CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-
+    <link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.9/styles/default.min.css">
     <style>
 body {
     font-family: 'open sans','HelveticaNeue','Helvetica Neue','Helvetica-Neue',Helvetica,Arial,sans-serif;
@@ -23,7 +24,6 @@ body {
 }
 
 #dictionary-list, #entry-list {
-    background-color: #ffe800;
     color: #1d4f95;
     margin-top: 6px;
     margin-bottom: 6px;
@@ -31,20 +31,27 @@ body {
     padding-top: 10px;
     padding-bottom: 10px;
     text-align: center;
+    text-transform: uppercase;
 }
 
 .list-group-item.active {
     background-color: #1d4f95;
+    color: #ffe800; 
+    font-weight: bold;
 }
 
 .btn-primary {
-    background-color: #1d4f95;
+    background-color: #3d5d87;
+    border-radius: 3px;
+}
+
+.list-group {
+    margin-left: 25px;
 }
 
 #footerButtons button {
     margin: 12px;
 }
-
     </style>
     </head>
     <body>
@@ -75,6 +82,7 @@ body {
                             <span class="lemma">{{entry.lemma}}</span>
                             (<span class="partOfSpeech" v-for="pos in entry.partOfSpeech">{{pos}}</span>)
                             <button type="button" class="btn btn-primary float-right" 
+                                v-on:click="showTei(entry.id)"
                                 v-if="entry.formats.includes('tei')">View as TEI</button>
                             <button type="button" class="btn btn-primary float-right" 
                                 v-if="entry.formats.includes('ontolex')">View as OntoLex</button>
@@ -88,10 +96,10 @@ body {
             <div class="row" id="footerButtons">
                 <div class="col">
                 <button type="button" class="btn btn-primary float-right" 
-                                      v-bind:class="{disabled: entries.length < 20}"
+                                      v-if="entries.length >= 20"
                                       v-on:click="increaseOffset()">Next 20 Entries &raquo;</button>
                 <button type="button" class="btn btn-primary float-right" 
-                                      v-bind:class="{disabled: offset == 0}"
+                                      v-if="offset > 0"
                                       v-on:click="decreaseOffset()">&laquo; Previous 20 Entries</button>
                 </div>
             </div>
@@ -136,13 +144,58 @@ body {
                     </div>
                 </div>
             </div>
+            <div class="modal" tabindex="-1" role="dialog" id="entryTei">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Entry as TEI</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <h5>{{entry_tei.id}}</h5>
+                            <pre v-highlightjs="entry_tei.content"><code class="xml"></code></h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     <!-- development version, includes helpful console warnings -->
     <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.9/highlight.min.js"></script>
+
     <script>
+Vue.directive('highlightjs', {
+  deep: true,
+  bind: function (el, binding) {
+    // on first bind, highlight all targets
+    let targets = el.querySelectorAll('code')
+    targets.forEach((target) => {
+      // if a value is directly assigned to the directive, use this
+      // instead of the element content.
+      if (binding.value) {
+        target.textContent = binding.value
+      }
+      hljs.highlightBlock(target)
+    })
+  },
+  componentUpdated: function (el, binding) {
+    // after an update, re-fill the content and then highlight
+    let targets = el.querySelectorAll('code')
+    targets.forEach((target) => {
+      if (binding.value) {
+        target.textContent = binding.value
+        hljs.highlightBlock(target)
+      }
+    })
+  }
+})
+    </script>
+     <script>
         var app = new Vue({
             el: "#app",
             data: {
@@ -150,7 +203,8 @@ body {
                 "entries": [],
                 "activeDict": "test1",
                 "offset": 0,
-                "entry": {"canonicalForm": { "writtenRep": "placeholder" }, "partOfSpeech": "noun"}
+                "entry": {"canonicalForm": { "writtenRep": "placeholder" }, "partOfSpeech": "noun"},
+                "entry_tei": {"id": "", "content": ""}
             },
             methods: {
                 selectDict: function(dict) {
@@ -200,13 +254,21 @@ body {
                     }, response => {
                         console.log(JSON.stringify(response));
                     });
+                },
+                showTei : function(id) {
+                    this.$http.get('tei/' + this.activeDict + '/' + id).then(response => {
+                        this.entry_tei.id = id;
+                        this.entry_tei.content = response.body;
+                        $('#entryTei').modal('show');
+                    }, response => {
+                        console.log(JSON.stringify(response));
+                    });
                 }
-  
             },
             created: function() {
                 this.queryDicts();
             }
         })
     </script>
-    </body>
+   </body>
 </html>

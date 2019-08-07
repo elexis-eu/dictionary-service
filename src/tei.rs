@@ -8,6 +8,7 @@ use xml::namespace::Namespace;
 use xml::escape::escape_str_attribute;
 
 use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 
 pub fn parse<R : Read>(input : R, id : &str, release : Release,
                    genre : Vec<Genre>) -> EDSState {
@@ -23,6 +24,8 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
     let mut state = State::Empty;
 
     let mut lemma = String::new();
+    let mut variants = Vec::new();
+    let mut variant = String::new();
     let mut entry_id = None;
     let mut part_of_speech = Vec::new();
     let mut content = String::new();
@@ -31,6 +34,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
     let mut pos_string = String::new();
 
     let mut entries = Vec::new();
+    let mut anon_count = 0u32;
 
     for e in parser {
         match e { 
@@ -62,6 +66,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
                         },
                         None => {}
                     };
+                    content.clear();
                     extend_content_tag(&mut content, name, attributes, namespace);
                 } else if state == State::Entry || state == State::Lemma {
                     if name.local_name == "form" &&
@@ -69,10 +74,24 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
                                                   x.value == "lemma") {
                         state = State::Lemma
                     }
+                    if name.local_name == "form" &&
+                        attributes.iter().any(|x| x.name.local_name == "type" &&
+                                                  x.value == "variant") {
+                        variant.clear();
+                        state = State::Variant
+                    }
                     if name.local_name == "pos" || name.local_name == "gram"
                         && attributes.iter().any(|x| x.name.local_name == "type" &&
                                                  x.value == "pos") {
                         state = State::Pos;
+                        part_of_speech.clear();
+                        if let Some(norm) = attributes.iter().find(|x| x.name.local_name == "norm") {
+                            if let Ok(p) = PartOfSpeech::from_str(&norm.value) {
+                                part_of_speech = vec![p];
+                            } else {
+                                eprintln!("Bad normalization: {}", norm.value);
+                            }
+                        }
                         pos_string = String::new();
                     }
 
@@ -94,41 +113,56 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
                     state = State::Empty;
                 } else if name.local_name == "entry" {
                     extend_content_endtag(&mut content, name);
-                    match language {
-                        Some(ref language) => {
-                            match entry_id {
-                                Some(ref entry_id) => {
-                                    entries.push((
-                                            language.clone(),
-                                            Entry::new(
-                                                release.clone(), 
-                                                lemma.to_string(),
-                                                entry_id.to_string(),
-                                                part_of_speech.clone(),
-                                                vec![Format::tei]),
-                                            content.clone()));
-                                },
-                                None => {
-                                    eprintln!("No id on entry");
-                                }
-                            }
-                        },
+                    let lang = match language {
+                        Some(ref language) => language,
                         None => {
                             eprintln!("No language on entry");
+                            "und"
                         }
                     };
+                    let id = match entry_id {
+                        Some(ref entry_id) => entry_id.to_string(),
+                        None => {
+                            eprintln!("No id on entry");
+                            anon_count += 1;
+                            format!("unidentified_entry_{}", anon_count)
+                        }
+                    };
+                    if part_of_speech.is_empty() {
+                        part_of_speech.push(PartOfSpeech::X)
+                    }
+                    if lemma == "" {
+                        lemma.push_str("<Empty lemma>");
+                    }
+                    entries.push((
+                            lang.to_string(),
+                            Entry::new(
+                                release.clone(), 
+                                lemma.to_string(),
+                                id,
+                                part_of_speech.clone(),
+                                vec![Format::tei]),
+                            variants.clone(),
+                            content.clone()));
                     lemma = String::new();
                     entry_id = None;
                     part_of_speech = Vec::new();
                     content = String::new();
                     language = None;
+                    variants.clear();
                 } else if name.local_name == "form" && state == State::Lemma {
                     extend_content_endtag(&mut content, name);
                     state = State::Entry;
-                } else if (name.local_name == "gramGrp"  || name.local_name == "pos") 
+                } else if name.local_name == "form" && state == State::Lemma {
+                    extend_content_endtag(&mut content, name);
+                    variants.push(variant.clone());
+                    state = State::Entry;
+                } else if (name.local_name == "gram"  || name.local_name == "pos") 
                     && state == State::Pos {
                     extend_content_endtag(&mut content, name);
-                    part_of_speech.push(convert_pos(&pos_string));
+                    if part_of_speech.is_empty() { // we did not get a pos from the normalization
+                        part_of_speech.push(convert_pos(&pos_string));
+                    }
                     state = State::Entry;
                 } else if state == State::Entry || state == State::Lemma || state == State::Pos {
                     extend_content_endtag(&mut content, name);
@@ -144,10 +178,16 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
                 } else if state == State::Lemma {
                     content.push_str(&s);
                     lemma.push_str(&s);
+                } else if state == State::Variant {
+                    content.push_str(&s);
+                    variant.push_str(&s);
                 } else if state == State::Pos {
                     content.push_str(&s);
                     pos_string.push_str(&s);
                 }
+            },
+            Ok(XmlEvent::Whitespace(s)) => {
+                content.push_str(&s);
             },
             Err(e) => {
                 eprintln!("Failed to load TEI file: {:?}", e);
@@ -161,13 +201,14 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
     let src_langs = entries.iter().map(|x| x.0.clone()).collect::<HashSet<String>>();
     if src_langs.len() > 1 {
         for src_lang in src_langs {
-           dictionaries.insert(format!("{}-{}", id, src_lang),
+            let dict_id = format!("{}-{}", id, src_lang);
+           dictionaries.insert(dict_id.clone(),
             Dictionary::new(
                 release.clone(), src_lang.to_string(),
                 target_language.clone(),
                 genre.clone(), licence.clone().unwrap_or("unknown".to_string()),
                 creators.clone(), publishers.clone()));
-           build_entries(&id, &mut dict_entries, &entries, &src_lang);
+           build_entries(&dict_id, &mut dict_entries, &entries, &src_lang);
         }
     } else if src_langs.len() == 1 {
         let src_lang = src_langs.iter().next().unwrap();
@@ -185,7 +226,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
 
 fn build_entries(dict_id : &str,
     dict_entries : &mut HashMap<String, Vec<EntryContent>>,
-    entries : &Vec<(String, Entry, String)>,
+    entries : &Vec<(String, Entry, Vec<String>, String)>,
     lang : &str) {
 
     for entry in entries.iter() {
@@ -197,8 +238,8 @@ fn build_entries(dict_id : &str,
                         entry.1.id.to_string(),
                         entry.1.lemma.to_string(),
                         entry.1.part_of_speech.clone(),
-                        Vec::new(), // TODO: Variant forms
-                        entry.2.to_string()));
+                        entry.2.clone(),
+                        detab_content(&entry.3)));
         }
     }
 
@@ -241,7 +282,38 @@ fn extend_content_endtag(content : &mut String, name : OwnedName) {
         },
         None => {}
     };
+    content.push_str(&name.local_name);
     content.push_str(">");
+}
+
+fn detab_content(content : &str) -> String {
+    let mut indent = std::usize::MAX;
+    let mut first = true;
+    for line in content.split("\n") {
+        if first {
+            first = false;
+        } else if line != "" {
+            let i = line.chars().take_while(|c| *c == ' ').count();
+            indent = std::cmp::min(i, indent);
+        }
+    }
+    if indent == 0 || indent == std::usize::MAX {
+        content.to_string()
+    } else {
+        let mut detabbed = String::new();
+        first = true;
+        for line in content.split("\n") {
+            if first || line == "" {
+                first = false;
+                detabbed.push_str(&line);
+                detabbed.push_str("\n");
+            } else {
+                detabbed.push_str(&line[indent..]);
+                detabbed.push_str("\n");
+            }
+        }
+        detabbed
+    }
 }
 
 fn convert_pos(pos : &str) -> PartOfSpeech {
@@ -274,7 +346,8 @@ enum State {
     Publisher,
     Entry,
     Lemma,
-    Pos
+    Pos,
+    Variant
 }
 
 #[cfg(test)]

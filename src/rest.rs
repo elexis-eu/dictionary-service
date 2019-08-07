@@ -168,7 +168,7 @@ pub fn entry_tei(state : State) -> (State, Response<Body>) {
                     &state,
                     StatusCode::OK,
                     mime::TEXT_XML,
-                    serde_json::to_vec(&entry).expect("Cannot serialize entry"))
+                    entry)
             },
             None => {
                 create_response(

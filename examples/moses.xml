@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml"
+	schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+      <fileDesc>
+         <titleStmt>
+            <title>Example entries from the Nxaʔamxcín (Moses) Dictionary Database</title>
+         </titleStmt>
+         <publicationStmt>
+            <p>Provided as examples to the TEI LingSIG.</p>
+         </publicationStmt>
+         <sourceDesc>
+            <p>University of Victoria Nxaʔamxcín Dictionary Database Project.</p>         
+         </sourceDesc>
+      </fileDesc>
+     <encodingDesc>
+        <p>This file consists of a pair of multi-morphemic entries, each of which has a <gi>hyph</gi> 
+           which breaks it down into individual morphemes. The <gi>hyph</gi> contains links to 
+           the component monomorphemic entries which are also included here. The links between morphemes
+           (which also occur in the context of cited quotations and cross-references) are encoded using
+           a private URI scheme with the prefix "m".
+        </p>
+        <p>Other links using the private URI scheme with the "psn" prefix link to individuals in a personography, and 
+        mysterious bibl contents are coded references to field sessions with fluent speakers. Information 
+        on individuals and sessions is not included here.</p>
+     </encodingDesc>
+  </teiHeader>
+  <text>
+      <body>
+         <div>
+<!--        The following two entries are example multi-morphemic forms whose <hyph>
+            element links to other entries for individual morphemes. -->
+            
+<!--          First a very short and simple one.  -->
+            <entry xml:id="hamhampul">
+               <form>
+                  <pron>
+                     <seg type="p" subtype="i">hamhampúl</seg> 
+                     <bibl corresp="psn:ECH">ECH</bibl>
+                     <seg type="n">həmhəmpúl</seg> 
+                     <bibl corresp="psn:EP">EP4.55.9</bibl>
+                  </pron>
+                  <hyph>
+                     √<m corresp="m:hamp">ham</m>+<m corresp="m:CHAR">CVC</m>+<m corresp="m:hamp">p</m>-<m corresp="m:ul">úl</m>
+                  </hyph>
+               </form>
+               <sense>
+                  <def>
+                     <seg>someone who <gloss>fall</gloss>s off easily</seg>
+                     <bibl corresp="psn:EP">EP4.55.9</bibl>
+                 </def>
+               </sense>
+            </entry>
+            
+<!--        Next a slightly longer one including a <cit>.    -->
+            <entry xml:id="həmˀhəmˀcnanaʔxn">
+               <form>
+                  <pron>
+                     <seg type="p" subtype="i">hə̀mˀhəmˀcnánaʔxn</seg> 
+                     <bibl corresp="psn:ECH">ECH</bibl>
+                     <seg type="n">hə̀mˀhəmˀcənánaʔxən</seg> 
+                     <bibl corresp="psn:W">W3.31</bibl>
+                  </pron>
+                  <hyph>
+                     <m corresp="m:AUG">CəC</m>+√<m corresp="m:həmˀ">həmˀ</m>=<m corresp="m:cin">cn</m>=<m corresp="m:anaʔ">ánaʔ</m>=<m corresp="m:xn">xn</m>
+                  </hyph>
+               </form>
+               <sense>
+                  <def>
+                     <seg>
+                        <note type="editorial" resp="psn:ECH">Meaning not determined.</note>
+                     </seg>
+                  </def>
+                  
+                  <cit>
+                     <quote>
+                        <phr type="p" subtype="i">hə̀mˀ+√həmˀ=cn=ánaʔ=xn sqʼáʔqʼaʔxn</phr> 
+                        <bibl corresp="psn:ECH">ECH</bibl>
+                        <phr type="n">hə̀mˀ+√həmˀ=cən=ánaʔ=xən sqʼáʔqʼaʔxən</phr> 
+                        <bibl corresp="psn:W">W3.31</bibl>
+                        <seg>slippers</seg> 
+                        <bibl corresp="psn:W">W3.31</bibl>
+                     </quote>
+                  </cit>
+                  
+               </sense>
+            </entry>  
+            
+<!--        Next are the entries for the individual morphemes which are referenced in the 
+            hyphs above. Since these are individual morphemes, they have feature structures. -->
+            
+            <entry xml:id="hamp">   
+               
+               <form>
+                  <pron>
+                     <seg type="p">hámp</seg> 
+                     <bibl corresp="psn:J psn:MS">J3.72-74,78; MS1.53</bibl>
+                     <seg type="n">hə́mp</seg> 
+                     <bibl corresp="psn:JM psn:AM">Y24.90; Y29.179; Y6.282</bibl>
+                  </pron>
+                  
+                  <note type="internal" resp="psn:ECH">The form /hamp/ "fall, fall off, drop" never surfaces as /ham/ in MDK's data; given this; 
+                     ECH analyzes /p/ as part of the root, rather than as the inchoative marker /-p/.</note>
+                  <note type="referToElders" resp="psn:ECH">Is there a word "ham", with a meaning like "fall"?</note>
+               </form>
+               
+               <sense>
+                  
+                  <def>
+                     <seg><gloss>fall off</gloss></seg>
+                     <bibl corresp="psn:J psn:MS">J3.72-74,78; MS1.53</bibl>
+                     <seg>fall off something;  be <gloss>throw</gloss>n from a horse</seg>
+                     <bibl corresp="psn:JM">JM2.108.11</bibl>
+                     <seg>he fell off; it <gloss>drop</gloss>ped (by itself)</seg>
+                     <bibl corresp="psn:EP">EP2.150.10</bibl>
+                     <seg>it fell</seg>
+                     <bibl corresp="psn:EP">EP4.55.7</bibl>
+                  </def>
+                  
+                  <cit>
+                     <quote>
+                        <phr type="p" subtype="i">kʼʷəƛʼpákstmn kʷáʔ √hámp</phr> 
+                        <bibl corresp="psn:ECH">ECH</bibl> 
+                        <phr type="n">kʼʷəƛʼpákstəmən kʷáʔ √hámp</phr> 
+                        <bibl corresp="psn:W">W8.2</bibl>
+                        <seg>I dropped it (while holding it)</seg> 
+                        <bibl corresp="psn:W">W8.2</bibl>
+                     </quote>
+                  </cit>
+                                    
+                  <cit>
+                     <quote>
+                        <phr type="p" subtype="i">√hámp lxaʔ <m corresp="m:kWaʔ">kʷaʔ</m>kʼənɬúwˀ</phr> 
+                        <bibl corresp="psn:ECH">ECH</bibl>
+                        <phr type="n">√hə́mp l̩əxaʔ kʷaʔ kʼənɬówʔ</phr> 
+                        <bibl corresp="psn:JM psn:AM">Y29.144</bibl> 
+                        <seg>it dropped here and there</seg> 
+                        <bibl corresp="psn:JM psn:AM">Y29.144</bibl>
+                     </quote>
+                  </cit>
+                                    
+                  <cit>
+                     <quote>
+                        <phr type="p" subtype="i">√hámp <m corresp="m:tlˀ-PART">tlˀ</m> x̣əƛʼcín</phr> 
+                        <bibl corresp="psn:ECH">ECH</bibl>
+                        <phr type="n">√hámp təlˀ x̣əƛʼčén</phr> 
+                        <bibl corresp="psn:J">J3.74</bibl>
+                        <seg>he fell off a horse</seg> 
+                        <bibl corresp="psn:J">J3.74</bibl>
+                     </quote> 
+                  </cit>
+                                    
+                  <cit>
+                     <quote>
+                        <phr type="p" subtype="i">x̣əƛʼcín <m corresp="m:ʔani-ART">ʔani</m> √hámp ɬuw ttwˀít</phr> 
+                        <bibl corresp="psn:ECH">ECH</bibl>
+                        <phr type="n">x̣əƛʼčén ane √hə́mp ɬow ttəwˀét</phr> 
+                        <bibl corresp="psn:JM psn:AM">Y29.178</bibl>
+                        <seg>the horse threw the boy</seg> 
+                        <bibl corresp="psn:JM psn:AM">Y29.178</bibl>
+                     </quote>
+                  </cit>
+                  
+               </sense>
+               
+               <fs>
+                  <f name="baseType">
+                     <symbol value="root"/>
+                  </f>
+               </fs>
+               
+               <note type="internal">MDK indicated that the following forms were ungrammatical: *hə́mən <bibl corresp="psn:EP">EP; EP4.55</bibl>, *hə́mpm .</note>
+               <note type="internal" resp="psn:ECH">MDK listed the form kaRámət <bibl corresp="psn:S">S2.5</bibl> on his file card with the stem /hamp/. 
+		       The meaning is not listed, and it is not clear whether R represents /h/ or /ḥ/</note>      
+               <xr>See <ref target="m:ḥamp">ḥámp</ref>.</xr>
+            </entry>
+            
+
+            <entry xml:id="CHAR">
+               <form>
+                  <pron>
+                     <seg type="p">CVC</seg>
+                     <note type="editorial" resp="psn:ECH">copies and is suffixed after leftmost CVC in root; never stressed</note>
+                  </pron>
+                  
+               </form>
+               
+               <sense>
+                  <def>
+                     <seg>characteristic marker</seg>
+                     <bibl corresp="psn:ECH psn:MLW psn:MDK">ECH, MLW, MDK</bibl>
+                     <note type="editorial" resp="psn:ECH">occurs in forms with adjectival meanings; sometimes provides 
+			     distributive/plural meaning or occurs in words with lexicalized meaning</note>
+                     <note type="internal" resp="psn:ECH">See Willett (2003:242-ff) for discussion of adjectival marking.</note>
+                     <label>char</label>
+                  </def>  
+               </sense>
+               <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>
+                  <f name="derivationalType">
+                     <symbol value="reduplicative"/>
+                  </f>
+                  <f name="reduplicativeType">
+                     <symbol value="characteristic"/>
+                  </f>
+               </fs>
+            </entry>
+            
+            
+            <entry xml:id="ul">
+               <form>
+                  <pron>
+                     <seg type="p">úl</seg>
+                     <seg type="n">ól</seg>
+                  </pron>
+                  
+                  <!--<hyph>-<m sameAs="ul">úl</m></hyph>-->
+                  
+               </form>
+               <sense>
+                  <def>
+                     <seg>habitual aspect marker; indicates that a particular action or state is common to, 
+			     characteristic, or typical of an individual</seg>
+                     <bibl corresp="psn:MDK psn:ECH psn:MLW">MDK, ECH, MLW</bibl>
+                     <note type="editorial" resp="psn:ECH">often accompanied by augmentative or characteristic reduplication</note>
+                     <note type="internal" resp="psn:ECH">in pencil: habitually <bibl corresp="psn:C">CA.443</bibl>
+                     </note>
+                     <label>hb</label>
+                  </def>
+                  
+               </sense>
+		    
+               <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>
+                  <f name="derivationalType">
+                     <symbol value="secondaryAspectual"/>
+                  </f>
+                  <f name="secondaryAspectualType">
+                     <symbol value="attributiveHabitual"/>
+                  </f>
+               </fs>  
+		    
+            </entry>
+            
+		 
+            <entry xml:id="AUG">
+		    
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p">CəC</seg>
+                  </pron>                  
+               </form>
+		    
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p">CC</seg>
+                  </pron>
+                  <note type="editorial" resp="psn:ECH">prefixed to root; 
+			  copies first two root consonants usually with intervening schwa; never stressed</note>       
+               </form>
+		    
+               <sense>
+                        <def>
+                           <seg>augmentative, plural, distributive marker</seg>
+                           <bibl corresp="psn:ECH psn:MDK psn:MLW">ECH, MDK, MLW</bibl>
+                           <note type="editorial" resp="psn:ECH">in nouns refers to plurality; in verbs refers to repeated action, 
+				   action distributed over time/space, or an increase in intensity</note>
+                           <label>aug</label>
+                        </def>                                    
+               </sense>
+		    
+               <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="prefix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>
+                  <f name="derivationalType">
+                     <symbol value="reduplicative"/>
+                  </f>
+                  <f name="reduplicativeType">
+                     <symbol value="augmentative"/>
+                  </f>
+               </fs>
+		    
+            </entry>
+            
+		 
+            <entry xml:id="həmˀ">
+               <form>
+                  <pron>
+                     <seg type="p" subtype="i">həmˀ</seg> 
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+               </form>
+               <sense>
+                  <def>
+                     <seg> 
+                        <note type="editorial" resp="psn:SMK">Meaning not determined.</note> 
+                     </seg>
+                  </def>
+               </sense>
+               <fs>
+                  <f name="baseType">
+                     <symbol value="root"/>
+                  </f>
+               </fs>
+               <note type="editorial" resp="psn:MDK">Root entry added based on attested complex forms.</note>
+            </entry>
+            
+            <entry xml:id="cin">
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p" subtype="i">cín</seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                     <seg type="n" subtype="i">čín</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">čin</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">čén</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+                  <!--<hyph>=<m sameAs="cin">cín</m></hyph>-->
+               </form>
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p" subtype="i">cn</seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                     <seg type="n" subtype="i">čən</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+                  <!--<hyph>=<m sameAs="cin">cn</m></hyph>-->
+               </form>
+               <sense>
+                  <def>
+                     <seg>
+                        <gloss>mouth</gloss>, <gloss>edge</gloss>,
+                           <gloss>language</gloss>, <gloss>food</gloss>, <gloss>creek</gloss>
+                    </seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                     <note type="internal" resp="psn:ECH">On his filecards, MDK identified five
+                        separate meanings for this suffix. However, he subsequently combined them
+                        all into one entry.</note>
+                    <label>la</label>
+                  </def>
+               </sense>
+
+                <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>               
+                   <f name="derivationalType">
+                     <symbol value="lexical"/>
+                  </f>
+               </fs>
+
+            </entry>
+            
+            <entry xml:id="anaʔ">
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p" subtype="i">ánaʔ</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">ána</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">ánəʔᵊ</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">ánaʔᵃ</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+                  <!--<hyph>=<m sameAs="anaʔ">ánaʔ</m></hyph>-->
+               </form>
+               <form type="allomorph">
+                  <pron>
+                     <seg type="p" subtype="i">naʔ</seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                  </pron>
+                  <!--<hyph>=<m sameAs="anaʔ">naʔ</m></hyph>-->
+               </form>
+               <sense>
+                  <def>
+                     <seg>
+                        <gloss>ear</gloss>
+                     </seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg>side of face, all over</seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                     <note type="internal" resp="psn:ECH">In addition to his file card for this lexical suffix, 
+                        MDK listed the extended senses of =<ref target="m:anaʔ-2">anaʔ</ref> "over, on top of" 
+			     on a separate card in the affix file.
+                        Therefore, I have maintained two separate entries for this suffix.</note>
+                    <label>la</label>
+                  </def>
+               </sense>
+		    
+                <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>               
+                   <f name="derivationalType">
+                     <symbol value="lexical"/>
+                  </f>
+               </fs>
+               
+               <xr>See also =<ref target="m:anaʔ-2">anaʔ</ref>.</xr>               
+               		    
+            </entry>
+		 
+		 
+            <entry xml:id="xn">
+               <form>
+                  <pron>
+                     <seg type="p" subtype="i">xn</seg>
+                     <bibl corresp="psn:ECH">ECH 1984</bibl>
+                     <seg type="n" subtype="i">xən</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <seg type="n" subtype="i">xán</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+               </form>
+               <sense>
+                  <def>
+                     <seg>
+                        <gloss>foot</gloss>, <gloss>leg</gloss>
+                     </seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                     <label>la</label>
+                  </def>
+               </sense>
+               <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>               
+                  <f name="derivationalType">
+                     <symbol value="lexical"/>
+                  </f>
+               </fs>
+               
+               <xr>See also <ref target="m:xn-2">xn</ref>.</xr> 
+               
+            </entry>
+            
+<!--       This one is referred to in a cross-reference above.     -->
+            
+            <entry xml:id="xn-2">
+               <form>
+                  <pron>
+                     <seg type="p" subtype="i">xn</seg>
+                     <bibl corresp="psn:ECH">ECH</bibl>
+                     <seg type="n" subtype="i">xən</seg>
+                     <bibl corresp="psn:MDK">MDK</bibl>
+                  </pron>
+               </form>
+               <sense>
+                  <def>
+                     <seg>
+                        <note type="editorial" resp="psn:SMK">Meaning not determined.</note>
+                     </seg>
+                     <note type="internal" resp="psn:SMK">Not listed in ECH 1984.</note>
+                     <note type="referToElders" resp="psn:SMK">Is it possible to figure out the
+                        meaning of this suffix from the words it occurs in?</note>
+                     <label>la</label>
+                  </def>
+               </sense>
+               <fs>
+                  <f name="baseType">
+                     <symbol value="affix"/>
+                  </f>
+                  <f name="positionType">
+                     <symbol value="suffix"/>
+                  </f>
+                  <f name="affixType">
+                     <symbol value="derivational"/>
+                  </f>               
+                  <f name="derivationalType">
+                     <symbol value="lexical"/>
+                  </f>
+               </fs>
+               
+               <xr>See also <ref target="m:xn">xn</ref>.</xr> 
+               
+            </entry>
+
+         </div>
+      </body>
+  </text>
+</TEI>
