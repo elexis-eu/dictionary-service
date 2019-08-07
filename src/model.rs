@@ -30,10 +30,11 @@ quick_error! {
         Sqlite(err : rusqlite::Error) {
             from()
         }
-        Other(err : Box<dyn std::error::Error>) {
+        Json(err : serde_json::Error) {
             from()
-            cause(&**err)
-            description(err.description())
+        }
+        Other(err : String) {
+            description(err)
         }
     }
 }
@@ -48,7 +49,8 @@ pub struct EDSState {
 }
 
 impl EDSState {
-    pub fn new(dictionaries : HashMap<String, Dictionary>,
+    pub fn new(release : Release,
+               dictionaries : HashMap<String, Dictionary>,
                dict_entries : HashMap<String, Vec<EntryContent>>) -> Self {
         let mut dict_entry_map = HashMap::new();
         let mut dict_entry_map2 = HashMap::new();
@@ -64,14 +66,14 @@ impl EDSState {
                         Vec::new());
                 }
                 entry_map.entry(entry.lemma().to_string())
-                    .and_modify(|e| e.push(entry_from_content(&entry)));
+                    .and_modify(|e| e.push(entry_from_content(release.clone(), &entry)));
                 for var in entry.variants() {
                     if !entry_map2.contains_key(&var) {
                         entry_map2.insert(var.to_string(),
                         Vec::new());
                     }
                     entry_map.entry(var.clone())
-                        .and_modify(|e| e.push(entry_from_content(&entry)));
+                        .and_modify(|e| e.push(entry_from_content(release.clone(), &entry)));
                     }
             }
             dict_entry_map.insert(id.clone(), entry_map);
@@ -188,9 +190,9 @@ impl Backend for EDSState {
 
 }
 
-fn entry_from_content(content : &EntryContent) -> Entry {
+pub fn entry_from_content(release : Release, content : &EntryContent) -> Entry {
     Entry {
-        release: Release::PUBLIC,
+        release: release,
         lemma: content.lemma().to_string(),
         id: content.id().to_string(),
         part_of_speech: content.pos(),
@@ -201,13 +203,13 @@ fn entry_from_content(content : &EntryContent) -> Entry {
 #[derive(Clone,Debug,Serialize,Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Dictionary {
-    release : Release,
-    source_language : String,
-    target_language : Vec<String>,
-    genre : Vec<Genre>,
-    license : String,
-    creator : Vec<Agent>,
-    publisher : Vec<Agent>
+    pub release : Release,
+    pub source_language : String,
+    pub target_language : Vec<String>,
+    pub genre : Vec<Genre>,
+    pub license : String,
+    pub creator : Vec<Agent>,
+    pub publisher : Vec<Agent>
 }
 
 impl Dictionary {
@@ -377,6 +379,20 @@ pub enum Format {
     json
 }
 
+impl FromStr for Format {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Format, String> {
+        match s {
+            "tei" => Ok(Format::tei),
+            "ontolex" => Ok(Format::ontolex),
+            "json" => Ok(Format::json),
+            _ => Err(format!("Bad format: {}", s))
+        } 
+    }
+}
+
+
 #[derive(Clone,Debug,Deserialize)]
 pub enum EntryContent {
     Json(JsonEntry),
@@ -385,7 +401,7 @@ pub enum EntryContent {
 }
 
 impl EntryContent {
-    fn id(&self) -> &str {
+    pub fn id(&self) -> &str {
         match self {
             EntryContent::Json(j) => &j.id,
             EntryContent::Tei(id,_,_,_,_) => id,
@@ -393,7 +409,7 @@ impl EntryContent {
         }
     }
 
-    fn lemma(&self) -> &str {
+    pub fn lemma(&self) -> &str {
         match self {
             EntryContent::Json(j) => &j.canonical_form.written_rep,
             EntryContent::Tei(_,lemma,_,_,_) => lemma,
@@ -401,21 +417,21 @@ impl EntryContent {
         }
     }
 
-    fn pos(&self) -> Vec<PartOfSpeech> {
+    pub fn pos(&self) -> Vec<PartOfSpeech> {
         match self { 
             EntryContent::Json(j) => vec![JsonPartOfSpeech::convert(&j.part_of_speech)],
             EntryContent::Tei(_,_,pos,_,_) => pos.clone(),
             EntryContent::OntoLex(_,_,pos,_,_) => pos.clone()
         }
     }
-    fn format(&self) -> Format {
+    pub fn format(&self) -> Format {
         match self {
             EntryContent::Json(_) => Format::json,
             EntryContent::Tei(_,_,_,_,_) => Format::tei,
             EntryContent::OntoLex(_,_,_,_,_) => Format::ontolex
         }
     }
-    fn variants(&self) -> Vec<String> {
+    pub fn variants(&self) -> Vec<String> {
         match self {
             EntryContent::Json(j) => if let Some(ref forms) = j.other_form {
                 forms.iter().map(|x| x.written_rep.to_string()).collect()
@@ -424,6 +440,14 @@ impl EntryContent {
             },
             EntryContent::Tei(_,_,_,vars,_) => vars.clone(),
             EntryContent::OntoLex(_,_,_,vars,_) => vars.clone()
+        }
+    }
+
+    pub fn content(&self) -> String {
+        match self {
+            EntryContent::Json(j) => serde_json::to_string(j).unwrap(),
+            EntryContent::Tei(_,_,_,_,content) => content.clone(),
+            EntryContent::OntoLex(_,_,_,_,content) => content.clone()
         }
     }
 }

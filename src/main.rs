@@ -158,6 +158,10 @@ fn main() {
 
     let format = matches.value_of("data").unwrap_or("");
     let data : &str = matches.value_of("data").expect("The data paramter is required");
+    let release = matches.value_of("release").and_then(|x| model::Release::from_str(x).ok()).unwrap_or_else(|| {
+        eprintln!("Release is not specified or bad value, assuming PUBLIC");
+        model::Release::PUBLIC
+    });
     
     let state = if format == "json" || data.ends_with(".json") {
         let dictionaries : HashMap<String, DictJson> = serde_json::from_reader(
@@ -168,9 +172,8 @@ fn main() {
             dict_map.insert(id.clone(), dj.meta);
             entry_map.insert(id, dj.entries.into_iter().map(|x| EntryContent::Json(x)).collect());
         }
-        EDSState::new(dict_map, entry_map)
+        EDSState::new(release, dict_map, entry_map)
     } else if format == "tei" || data.ends_with("tei") || data.ends_with("xml") {
-        let release = model::Release::from_str(matches.value_of("release").expect("Release is required for TEI files")).unwrap();
         let mut genres = Vec::new();
         if let Some(gs) = matches.values_of("genre") {
             for g in gs {
