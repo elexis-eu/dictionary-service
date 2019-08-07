@@ -1,7 +1,6 @@
 use rusqlite::{Connection, NO_PARAMS};
 
-use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,Genre,Agent,Format,EntryContent,entry_from_content};
-use std::str::FromStr;
+use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent,Agent,Genre};
 use std::collections::HashMap;
 use std::fs;
 
@@ -21,11 +20,11 @@ impl RusqliteState {
         let db = Connection::open(&self.path)?;
         self.create_tables(&db)?;
         for (dict_id, dict) in dictionaries {
-            self.insert_dict(&db, &dict_id, dict);
+            self.insert_dict(&db, &dict_id, dict)?;
         }
         for (dict_id, entries) in dict_entries {
             for entry in entries {
-                self.insert_entry(&db, &dict_id, entry, release.clone());
+                self.insert_entry(&db, &dict_id, entry, release.clone())?;
             }
         }
         Ok(())
@@ -34,7 +33,7 @@ impl RusqliteState {
 
     fn create_tables(&self, db : &rusqlite::Connection) -> Result<(),rusqlite::Error> {
         db.execute("CREATE TABLE IF NOT EXISTS dictionaries
-                (id TEXT,
+                (id TEXT UNIQUE,
                  release TEXT,
                  source_language TEXT,
                  target_languages TEXT,
@@ -76,7 +75,7 @@ impl RusqliteState {
     }
 
     fn insert_dict(&self, db : &Connection, dict_id : &str, dict : Dictionary) -> Result<(),rusqlite::Error> {
-        let mut stmt = db.prepare("INSERT INTO dictionaries (id, release, source_language, target_languages, genres, license, creators, publishers VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
+        let mut stmt = db.prepare("INSERT OR REPLACE INTO dictionaries (id, release, source_language, target_languages, genres, license, creators, publishers) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
         stmt.execute(
             &[dict_id, &serde_json::to_string(&dict.release).unwrap(), 
@@ -95,7 +94,8 @@ impl RusqliteState {
             entry_content.lemma(),
             entry_content.id(),
             &serde_json::to_string(&entry_content.pos()).unwrap(),
-            &serde_json::to_string(&entry_content.format()).unwrap()])?;
+            &serde_json::to_string(&vec![entry_content.format()]).unwrap(),
+            dict_id])?;
 
         let mut stmt2 = db.prepare("SELECT last_insert_rowid()")?;
         let mut result = stmt2.query(NO_PARAMS)?;
@@ -152,39 +152,18 @@ impl Backend for RusqliteState {
         
         if let Some(r) = result.next()? {
             let r_str : String = r.get(0)?;
-            let release = Release::from_str(&r_str).map_err(|e| BackendError::Other(e))?;
+            let release = serde_json::from_str(&r_str)?;
             let source_lang = r.get(1)?;
             let tl_str : String = r.get(2)?;
-            let targ_langs = tl_str.split(",").map(|x| x.to_string()).collect();
+            let targ_langs = serde_json::from_str(&tl_str)?;
             let g_str : String = r.get(3)?;
-            let genres = g_str.split(",").map(|x| Genre::from_str(x).expect("Bad genre string in DB")).collect();
+            let genres = serde_json::from_str(&g_str)?;
             let license = r.get(4)?;
             let c_str : String = r.get(5)?;
-            let creator_ids = c_str.split(",");
+            let creators = serde_json::from_str(&c_str)?;
             let p_str : String = r.get(6)?;
-            let publisher_ids = p_str.split(",");
-            let mut creators = Vec::new();
-            let mut publishers = Vec::new();
+            let publishers = serde_json::from_str(&p_str)?;
 
-            let mut stmt2 = db.prepare("SELECT name, email, url FROM agents WHERE id=?")?;
-            for creator_id in creator_ids {
-                creators.push(stmt2.query_row(&[creator_id], |r| {
-                    Ok(Agent { 
-                        name: r.get(0)?,
-                        email: empty_str_to_none(r.get(1)?),
-                        url: empty_str_to_none(r.get(2)?)
-                    })
-                })?);
-            }
-            for publisher_id in publisher_ids {
-                publishers.push(stmt2.query_row(&[publisher_id], |r| {
-                    Ok(Agent { 
-                        name: r.get(0)?,
-                        email: empty_str_to_none(r.get(1)?),
-                        url: empty_str_to_none(r.get(2)?)
-                    })
-                })?);
-            }
             Ok(Dictionary::new(release, source_lang, targ_langs,
                     genres, license, creators, publishers))
 
@@ -201,7 +180,7 @@ impl Backend for RusqliteState {
                 Some(_) =>
                     db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? LIMIT ? OFFSET ?")?,
                 None =>
-                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? OFFSET ?")?
+                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? LIMIT -1 OFFSET ?")?
             },
             None => match limit {
                 Some(_) =>
@@ -239,11 +218,11 @@ impl Backend for RusqliteState {
             let pos_str : String = r.get(3)?;
             let format_str : String = r.get(4)?;
             entries.push(Entry {
-                release: Release::from_str(&r_str).map_err(|e| BackendError::Other(e))?,
+                release: serde_json::from_str(&r_str)?,
                 lemma: r.get(1)?,
                 id: r.get(2)?,
-                part_of_speech: pos_str.split(",").flat_map(|x| PartOfSpeech::from_str(x)).collect(),
-                formats: format_str.split(",").flat_map(|x| Format::from_str(x)).collect()
+                part_of_speech: serde_json::from_str(&pos_str)?,
+                formats: serde_json::from_str(&format_str)?
             })
         }
 
@@ -265,7 +244,7 @@ impl Backend for RusqliteState {
         let mut q = String::from("SELECT release, lemma, id, part_of_speech, format FROM entries");
         
         if inflected {
-            q.push_str(" JOIN variants ON variant.lemma == entries.lemma WHERE dict=?");
+            q.push_str(" JOIN variants ON variants.entry_id == entries.row_id WHERE dict=?");
         } else {
             q.push_str(" WHERE dict=?");
         }
@@ -278,24 +257,26 @@ impl Backend for RusqliteState {
             params.push(&pos_str);
         }
         if inflected {
-            q.push_str(" AND variant.form=?");
+            q.push_str(" AND variants.form=?");
         } else {
             q.push_str(" AND entries.lemma=?");
         }
         params.push(headword);
         let mut o_str = String::new();
-        if let Some(o) = offset {
-            q.push_str(" OFFSET ?");
-            o_str.push_str(&format!("{}", o));
-            params.push(&o_str);
-        }
         let mut l_str = String::new();
         if let Some(l) = limit {
             q.push_str(" LIMIT ?");
             l_str.push_str(&format!("{}", l));
             params.push(&l_str);
+        } else {
+            q.push_str(" LIMIT -1");
         }
 
+        if let Some(o) = offset {
+            q.push_str(" OFFSET ?");
+            o_str.push_str(&format!("{}", o));
+            params.push(&o_str);
+        }
         let mut stmt = db.prepare(&q)?;
         let mut result = stmt.query(&params)?;
         let mut entries = Vec::new();
@@ -304,11 +285,11 @@ impl Backend for RusqliteState {
             let pos_str : String = r.get(3)?;
             let format_str : String = r.get(4)?;
             entries.push(Entry {
-                release: Release::from_str(&r_str).map_err(|e| BackendError::Other(e))?,
+                release: serde_json::from_str(&r_str)?,
                 lemma: r.get(1)?,
                 id: r.get(2)?,
-                part_of_speech: pos_str.split(",").flat_map(|x| PartOfSpeech::from_str(x)).collect(),
-                formats: format_str.split(",").flat_map(|x| Format::from_str(x)).collect()
+                part_of_speech: serde_json::from_str(&pos_str)?,
+                formats: serde_json::from_str(&format_str)?
             })
         }
  
@@ -326,7 +307,7 @@ impl Backend for RusqliteState {
     /// Get the content as Json
     fn entry_json(&self, dictionary : &str, id : &str) -> Result<JsonEntry,BackendError> {
         let db = Connection::open(&self.path)?;
-        let mut stmt = db.prepare("SELECT json FROM json_entries WHERE dict=? AND id=?")?;
+        let mut stmt = db.prepare("SELECT json FROM json_entries JOIN entries ON entries.row_id == json_entries.entry_id WHERE dict=? AND id=?")?;
         let mut result = stmt.query(&[dictionary, id])?;
         if let Some(r) = result.next()? {
             let json_str : String = r.get(0)?;
@@ -338,7 +319,7 @@ impl Backend for RusqliteState {
     /// Get the content as OntoLex
     fn entry_ontolex(&self, dictionary : &str, id : &str) -> Result<String,BackendError> {
         let db = Connection::open(&self.path)?;
-        let mut stmt = db.prepare("SELECT ontolex FROM ontolex_entries WHERE dict=? AND id=?")?;
+        let mut stmt = db.prepare("SELECT ontolex FROM ontolex_entries JOIN entries ON entries.row_id == ontolex_entries.entry_id WHERE dict=? AND id=?")?;
         let mut result = stmt.query(&[dictionary, id])?;
         if let Some(r) = result.next()? {
             Ok(r.get(0)?)
@@ -349,7 +330,7 @@ impl Backend for RusqliteState {
     /// Get the content as TEI
     fn entry_tei(&self, dictionary : &str, id : &str) -> Result<String,BackendError> {
         let db = Connection::open(&self.path)?;
-        let mut stmt = db.prepare("SELECT tei FROM tei_entries WHERE dict=? AND id=?")?;
+        let mut stmt = db.prepare("SELECT tei FROM tei_entries JOIN entries ON entries.row_id == tei_entries.entry_id WHERE dict=? AND id=?")?;
         let mut result = stmt.query(&[dictionary, id])?;
         if let Some(r) = result.next()? {
             Ok(r.get(0)?)
@@ -375,3 +356,134 @@ fn test_create_db() {
     state.load(Release::PUBLIC, HashMap::new(), HashMap::new()).unwrap();
     fs::remove_file("test-tmp.db").unwrap();
 }
+
+#[test]
+fn test_load_db() {
+    let tmp_db_path = String::from("test-tmp2.db");
+    let state = RusqliteState::new(tmp_db_path.clone());
+    let mut dictionaries = HashMap::new();
+    dictionaries.insert("dict1".to_string(),
+        Dictionary {
+            release: Release::PUBLIC,
+            source_language: "en".to_string(),
+            target_language: vec!["en".to_string(),"de".to_string()],
+            genre: vec![Genre::gen],
+            license: "http://license.url/".to_string(),
+            creator: vec![Agent { 
+                name: "Joe Bloggs".to_string(), 
+                email: Some("joe@example.com".to_string()),
+                url: None }],
+            publisher: Vec::new()
+        });
+    let mut entries = HashMap::new();
+    entries.insert("dict1".to_string(), vec![
+        EntryContent::Json(serde_json::from_str("{
+            \"@context\": \"http://lexinfo.net/jsonld/3.0/content.json\",
+            \"@type\": \"Word\",
+            \"@id\": \"test\",
+            \"language\": \"en\",
+            \"partOfSpeech\": \"adjective\",
+            \"canonicalForm\": {
+                \"writtenRep\": \"example\"
+            },
+            \"senses\": [
+                {
+                    \"definition\": \"An example OntoLex Entry\"
+                }
+            ]
+        }").unwrap())]);
+
+
+    state.load(Release::PUBLIC, dictionaries, entries).unwrap();
+    fs::remove_file("test-tmp2.db").unwrap();
+}
+
+#[test]
+fn test_backend() {
+    let tmp_db_path = String::from("test-tmp3.db");
+    let state = RusqliteState::new(tmp_db_path.clone());
+    let mut dictionaries = HashMap::new();
+    dictionaries.insert("dict1".to_string(),
+        Dictionary {
+            release: Release::PUBLIC,
+            source_language: "en".to_string(),
+            target_language: vec!["en".to_string(),"de".to_string()],
+            genre: vec![Genre::gen],
+            license: "http://license.url/".to_string(),
+            creator: vec![Agent { 
+                name: "Joe Bloggs".to_string(), 
+                email: Some("joe@example.com".to_string()),
+                url: None }],
+            publisher: Vec::new()
+        });
+    let mut entries = HashMap::new();
+    entries.insert("dict1".to_string(), vec![
+        EntryContent::Json(serde_json::from_str("{
+            \"@context\": \"http://lexinfo.net/jsonld/3.0/content.json\",
+            \"@type\": \"Word\",
+            \"@id\": \"test\",
+            \"language\": \"en\",
+            \"partOfSpeech\": \"adjective\",
+            \"canonicalForm\": {
+                \"writtenRep\": \"example\"
+            },
+            \"senses\": [
+                {
+                    \"definition\": \"An example OntoLex Entry\"
+                }
+            ]
+        }").unwrap())]);
+
+
+    state.load(Release::PUBLIC, dictionaries, entries).unwrap();
+
+    let dictionaries = state.dictionaries();
+    assert!(dictionaries.is_ok());
+    assert_eq!(dictionaries.unwrap().len(), 1);
+
+    let meta = state.about("dict1").unwrap();
+    assert_eq!(meta.release, Release::PUBLIC);
+    assert_eq!(meta.source_language, "en");
+    assert_eq!(meta.target_language, vec!["en".to_string(),"de".to_string()]);
+    assert_eq!(meta.genre, vec![Genre::gen]);
+    assert_eq!(meta.license, "http://license.url/".to_string());
+    assert_eq!(meta.creator, vec![Agent { 
+        name: "Joe Bloggs".to_string(), 
+        email: Some("joe@example.com".to_string()),
+        url: None }]);
+    assert_eq!(meta.publisher, Vec::new());
+
+    let list = state.list("dict1",None,None).unwrap();
+    assert_eq!(list.len(), 1);
+    let list = state.list("dict1",Some(0),None).unwrap();
+    assert_eq!(list.len(), 1);
+    let list = state.list("dict1",None,Some(1)).unwrap();
+    assert_eq!(list.len(), 1);
+    let list = state.list("dict1",Some(0),Some(1)).unwrap();
+    assert_eq!(list.len(), 1);
+
+  
+    let lookup = state.lookup("dict1", "example", None, None, None, false).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), None, None, false).unwrap();
+    let lookup = state.lookup("dict1", "example", None, Some(1), None, false).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), Some(1), None, false).unwrap();
+    let lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), false).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), false).unwrap();
+    let lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
+    let lookup = state.lookup("dict1", "example", None, None, None, true).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), None, None, true).unwrap();
+    let lookup = state.lookup("dict1", "example", None, Some(1), None, true).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), Some(1), None, true).unwrap();
+    let lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), true).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), true).unwrap();
+    let lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
+    let lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
+
+    let entry_json = state.entry_json("dict1", "test").unwrap();
+    state.entry_ontolex("dict1","test").err().unwrap();
+    state.entry_tei("dict1","test").err().unwrap();
+    fs::remove_file("test-tmp3.db").unwrap();
+}
+
+

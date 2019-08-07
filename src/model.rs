@@ -226,7 +226,7 @@ impl Dictionary {
     }
 }
 
-#[derive(Clone,Debug,Serialize,Deserialize)]
+#[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Release {
     PUBLIC,
@@ -249,7 +249,7 @@ impl FromStr for Release {
     }
 }
 
-#[derive(Clone,Debug,Serialize,Deserialize)]
+#[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Genre {
     gen,
@@ -279,7 +279,7 @@ impl FromStr for Genre {
 } 
 
 
-#[derive(Clone,Debug,Serialize,Deserialize)]
+#[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 pub struct Agent {
     pub name : String,
     pub email : Option<String>,
