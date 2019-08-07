@@ -1,5 +1,5 @@
 use std::io::Read;
-use crate::model::{EDSState, Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech};
+use crate::model::{EDSState, Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech, EntryContent};
 
 use xml::reader::{EventReader, XmlEvent};
 use xml::name::OwnedName;
@@ -157,7 +157,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
     }
 
     let mut dictionaries = HashMap::new();
-    let dict_entries = HashMap::new();
+    let mut dict_entries = HashMap::new();
     let src_langs = entries.iter().map(|x| x.0.clone()).collect::<HashSet<String>>();
     if src_langs.len() > 1 {
         for src_lang in src_langs {
@@ -167,6 +167,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
                 target_language.clone(),
                 genre.clone(), licence.clone().unwrap_or("unknown".to_string()),
                 creators.clone(), publishers.clone()));
+           build_entries(&id, &mut dict_entries, &entries, &src_lang);
         }
     } else if src_langs.len() == 1 {
         let src_lang = src_langs.iter().next().unwrap();
@@ -176,9 +177,31 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
             target_language,
             genre.clone(), licence.unwrap_or("unknown".to_string()),
             creators.clone(), publishers.clone()));
+       build_entries(&id, &mut dict_entries, &entries, &src_lang);
     }
  
     EDSState::new(dictionaries, dict_entries)
+}
+
+fn build_entries(dict_id : &str,
+    dict_entries : &mut HashMap<String, Vec<EntryContent>>,
+    entries : &Vec<(String, Entry, String)>,
+    lang : &str) {
+
+    for entry in entries.iter() {
+        if entry.0 == lang {
+
+            dict_entries.entry(dict_id.to_string())
+                .or_insert_with(|| Vec::new())
+                .push(EntryContent::Tei(
+                        entry.1.id.to_string(),
+                        entry.1.lemma.to_string(),
+                        entry.1.part_of_speech.clone(),
+                        Vec::new(), // TODO: Variant forms
+                        entry.2.to_string()));
+        }
+    }
+
 }
 
 fn extend_content_tag(content : &mut String, name : OwnedName, 
@@ -363,7 +386,8 @@ mod tests {
         let x : &[u8] = include_bytes!("../examples/example-tei.xml");
         let state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new());
         assert_eq!(state.dictionaries.lock().unwrap().len(), 1);
-        assert!(state.entries_lemmas.lock().unwrap().contains_key("girl"))
+        assert!(state.entries_lemmas.lock().unwrap().contains_key("exmaple-tei"));
+        assert!(state.entries_lemmas.lock().unwrap().get("exmaple-tei").unwrap().contains_key("girl"));
 
     }
 

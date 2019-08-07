@@ -279,11 +279,11 @@ pub struct DCProperty {
 #[derive(Clone,Debug,Serialize,Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
-    release : Release,
-    lemma : String,
-    id : String,
+    pub release : Release,
+    pub lemma : String,
+    pub id : String,
     pub part_of_speech : Vec<PartOfSpeech>,
-    formats : Vec<Format>
+    pub formats : Vec<Format>
 }
 
 impl Entry {
