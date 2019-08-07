@@ -48,7 +48,8 @@ impl RusqliteState {
                  id TEXT,
                  part_of_speech TEXT,
                  format TEXT,
-                 dict TEXT)", NO_PARAMS)?;
+                 dict TEXT,
+                 UNIQUE(dict,id))", NO_PARAMS)?;
         db.execute("CREATE INDEX IF NOT EXISTS entries_idx ON entries (lemma)", NO_PARAMS)?;
         db.execute("CREATE INDEX IF NOT EXISTS entries_idx2 ON entries (dict)", NO_PARAMS)?;
         db.execute("CREATE INDEX IF NOT EXISTS entries_idx3 ON entries (id)", NO_PARAMS)?;
@@ -88,7 +89,7 @@ impl RusqliteState {
         Ok(())
     }
     fn insert_entry(&self, db : &Connection, dict_id : &str, entry_content : EntryContent, release : Release) -> Result<(),rusqlite::Error> {
-        let mut stmt = db.prepare("INSERT INTO entries (release, lemma, id, part_of_speech, format, dict) VALUES (?,?,?,?,?,?)")?;
+        let mut stmt = db.prepare("INSERT OR REPLACE INTO entries (release, lemma, id, part_of_speech, format, dict) VALUES (?,?,?,?,?,?)")?;
         stmt.execute(&[
             &serde_json::to_string(&release).unwrap(),
             entry_content.lemma(),
