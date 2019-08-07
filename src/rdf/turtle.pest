@@ -1,0 +1,95 @@
+turtle_doc = { (statement ~ ws*)* }
+
+statement = _{ (directive ~ ws* ~ "." | triples ~ ws* ~ "." ) }
+
+directive = { (prefix_id | base) }
+      
+prefix_id = { "@prefix" ~ ws* ~ (prefix_name ?) ~ (":" ~ ws* ~ uriref) }
+      
+base = { "@base" ~ ws* ~ uriref }
+      
+triples = { subject ~ ws* ~ predicate_object_list }
+      
+predicate_object_list = { verb ~ ws* ~ object_list ~ ws* ~ ( ws* ~ ";" ~ ws* ~ verb ~ ws* ~ object_list)* } 
+      
+object_list = { objct ~ ws* ~ ( ws* ~ "," ~ ws* ~ objct )* }
+     
+verb = { "a" | predicate } 
+      
+tnemmoc = _{ "#" ~ (!(newline) ~ any)* ~ newline }
+      
+subject = _{ resource | blank }
+      
+predicate = _{ resource }
+      
+objct = _{ resource | blank | lit }
+      
+lit = { datatype_string | lang_string  | duble | integer | bool }
+
+lang_string = { quoted_string ~ (language ?) }
+      
+datatype_string = { (quoted_string ~ "^^") ~ resource }
+      
+integer = { ("+" | "-")? ~ ('0'..'9')+ }
+      
+duble = { ("+" | "-")? ~ (((('0'..'9')+ ~ "." ~ ('0'..'9')+)) | ("." ~ ('0'..'9')+)) ~ (("E" | "e") ~ ("+" | "-")? ~ ('0'..'9')+)? }
+//duble = { "0.2e-6" }
+      
+bool = { "true" | "false" }
+      
+blank = { blank_node_id | blank_node_empty | blank_node_preds | blank_node_collection_empty | blank_node_collection }
+      
+blank_node_id = { "_:" ~ node_id }
+      
+blank_node_empty  = { "[" ~ ws* ~ "]" }
+
+blank_node_preds = { "[" ~ ws* ~ predicate_object_list ~ ws* ~ "]" }
+
+blank_node_collection_empty = { "(" ~ ws* ~ ")" }
+          
+blank_node_collection = { "(" ~ ws* ~ item_list ~ ws* ~ ")" }
+      
+item_list = { (objct ~ (ws* ~ objct)*)? }
+      
+collection = _{ item_list ~ ")" }
+      
+resource = { uriref | qname }
+
+node_id = { name }
+      
+language = { "@" ~ ('a'..'z') ~ ('a'..'z'|'0'..'9'|'A'..'Z'|"-")* }
+      
+qname = { prefix_name? ~ ":" ~ name }
+     
+uriref = { "<" ~ (!(">" | "\n") ~ any)* ~ ">" }
+
+name = { name_start_char ~ name_chars* }
+      
+prefix_name = { name_start_char2 ~ pn_chars* }
+      
+quoted_string = _{ long_string | string }
+
+string = { "\"" ~ (raw_string | escape)* ~ "\"" }
+
+raw_string = { (!("\\" | "\"") ~ any)+ }
+
+hex = _{ '0'..'9' | 'a'..'f' | 'A'..'F' }
+unicode_hex = { hex{1, 6} }
+predefined = { "n" | "r" | "t" | "\\" | "0" | "\"" | "'" }
+byte       = { "x" ~ hex{2} }
+unicode    = { "u" ~ "{" ~ unicode_hex ~ "}" }
+escape     = { "\\" ~ (predefined | byte | unicode) }
+
+long_string = { "\"\"\"" ~ (raw_string | escape)* ~ "\"\"\"" }
+
+pn_chars = _{ ('A'..'Z' | 'a'..'z' | "%" | '0'..'9' | '\u{00C0}'..'\u{00D6}' | '\u{00D8}'..'\u{00F6}' | '\u{00F8}'..'\u{02FF}' | '\u{0370}'..'\u{037D}' | '\u{037F}'..'\u{1FFF}' | '\u{200C}'..'\u{200D}' | '\u{2070}'..'\u{218F}' | '\u{2C00}'..'\u{2FEF}' | '\u{3001}'..'\u{D7FF}' | '\u{F900}'..'\u{FDCF}' | '\u{FDF0}'..'\u{FFFD}' ) }
+
+name_chars = _{ ('A'..'Z' | 'a'..'z' | "%" | '0'..'9' | "\u{00B7}" | '\u{0300}'..'\u{036F}' | '\u{203F}'..'\u{2040}' | "\u{00B7}" | '\u{0300}'..'\u{036F}' | '\u{203F}'..'\u{2040}' | '\u{00C0}'..'\u{00D6}' | '\u{00D8}'..'\u{00F6}' | '\u{00F8}'..'\u{02FF}' | '\u{0370}'..'\u{037D}' | '\u{037F}'..'\u{1FFF}' | '\u{200C}'..'\u{200D}' | '\u{2070}'..'\u{218F}' | '\u{2C00}'..'\u{2FEF}' | '\u{3001}'..'\u{D7FF}' | '\u{F900}'..'\u{FDCF}' | '\u{FDF0}'..'\u{FFFD}' | "-" ) }
+
+name_start_char = _{ ('A'..'Z' | "_" | 'a'..'z' | '\u{00C0}'..'\u{00D6}' | '\u{00D8}'..'\u{00F6}' | '\u{00F8}'..'\u{02FF}' | '\u{0370}'..'\u{037D}' | '\u{037F}'..'\u{1FFF}' | '\u{200C}'..'\u{200D}' | '\u{2070}'..'\u{218F}' | '\u{2C00}'..'\u{2FEF}' | '\u{3001}'..'\u{D7FF}' | '\u{F900}'..'\u{FDCF}' | '\u{FDF0}'..'\u{FFFD}' ) }
+
+name_start_char2 = _{ ('A'..'Z' | 'a'..'z' | '\u{00C0}'..'\u{00D6}' | '\u{00D8}'..'\u{00F6}' | '\u{00F8}'..'\u{02FF}' | '\u{0370}'..'\u{037D}' | '\u{037F}'..'\u{1FFF}' | '\u{200C}'..'\u{200D}' | '\u{2070}'..'\u{218F}' | '\u{2C00}'..'\u{2FEF}' | '\u{3001}'..'\u{D7FF}' | '\u{F900}'..'\u{FDCF}' | '\u{FDF0}'..'\u{FFFD}' ) }
+
+//ws = _{ " " | "\t" | newline }
+ws = _{ " " | "\t" | newline | tnemmoc }
+newline    = _{ "\n" | "\r\n" }

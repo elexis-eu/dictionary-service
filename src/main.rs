@@ -10,10 +10,16 @@ extern crate serde_json;
 extern crate gotham_derive;
 extern crate clap;
 extern crate xml;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+#[macro_use]
+extern crate quick_error;
 
 mod rest;
 mod model;
 mod tei;
+mod rdf;
 
 use gotham::state::State;
 use gotham::router::Router;
