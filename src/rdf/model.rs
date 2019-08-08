@@ -1,10 +1,12 @@
 use rand;
 use rand::Rng;
+use std::cmp::{Ord, Ordering};
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 // Values
 
 /// Any RDF value
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Eq,PartialOrd,Ord)]
 pub enum Value {
     Literal(Literal),
     Resource(Resource)
@@ -57,7 +59,7 @@ impl From<NamedNode> for Value {
 }
 
 /// A RDF resource
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Eq,Ord,PartialOrd)]
 pub enum Resource {
     BlankNode(String),
     Named(NamedNode)
@@ -82,6 +84,18 @@ impl Resource {
     pub fn as_value(self) -> Value {
         Value::Resource(self)
     }
+    pub fn is_uri(&self) -> bool {
+        match self {
+            Resource::BlankNode(_) => false,
+            Resource::Named(_) => true
+        }
+    }
+    pub fn is_bnode(&self) -> bool {
+        match self {
+            Resource::BlankNode(_) => true,
+            Resource::Named(_) => false
+        }
+    }
 }
 
 impl ToString for Resource {
@@ -94,7 +108,7 @@ impl ToString for Resource {
 }
 
 /// A Resource (non-literal) RDF value
-#[derive(PartialEq,Debug,Clone)]
+#[derive(Debug,Clone,Eq)]
 pub enum NamedNode {
     URIRef(String),
     QName(Namespace, String)
@@ -118,6 +132,24 @@ impl NamedNode {
     }
 }
 
+impl Ord for NamedNode {
+    fn cmp(&self, other : &Self) -> Ordering {
+        self.uri().cmp(&other.uri())
+    }
+}
+
+impl PartialOrd for NamedNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for NamedNode {
+    fn eq(&self, other : &Self) -> bool {
+        self.uri() == other.uri()
+    }
+}
+
 impl ToString for NamedNode {
     fn to_string(&self) -> String {
         match self {
@@ -128,7 +160,7 @@ impl ToString for NamedNode {
 }
 
 /// A literal RDF value
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Eq,PartialOrd,Ord)]
 pub enum Literal {
     PlainLiteral(String),
     LangLiteral(String, String),
@@ -158,7 +190,7 @@ impl ToString for Literal {
     }
 }
 
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Eq)]
 pub struct Namespace(pub String,pub String);
 
 impl Namespace {
@@ -178,5 +210,6 @@ impl Namespace {
     }
 }
 
-#[derive(PartialEq,Debug,Clone)]
+#[derive(PartialEq,Debug,Clone,Eq,PartialOrd,Ord)]
 pub struct Triple(pub Resource,pub NamedNode,pub Value);
+

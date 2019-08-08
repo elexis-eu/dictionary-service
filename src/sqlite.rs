@@ -1,16 +1,20 @@
 use rusqlite::{Connection, NO_PARAMS};
 
-use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent,Agent,Genre};
+use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent};
+#[cfg(test)]
+use crate::model::{Agent,Genre};
 use std::collections::HashMap;
+#[cfg(test)]
 use std::fs;
 
+#[derive(Clone,StateData)]
 pub struct RusqliteState {
     path : String
 }
 
 impl RusqliteState {
-    pub fn new(path : String) -> Self {
-        RusqliteState { path }
+    pub fn new(path : &str) -> Self {
+        RusqliteState { path:path.to_string() }
     }
 
     pub fn load(&self,
@@ -89,46 +93,52 @@ impl RusqliteState {
         Ok(())
     }
     fn insert_entry(&self, db : &Connection, dict_id : &str, entry_content : EntryContent, release : Release) -> Result<(),rusqlite::Error> {
-        let mut stmt = db.prepare("INSERT OR REPLACE INTO entries (release, lemma, id, part_of_speech, format, dict) VALUES (?,?,?,?,?,?)")?;
-        stmt.execute(&[
-            &serde_json::to_string(&release).unwrap(),
-            entry_content.lemma(),
-            entry_content.id(),
-            &serde_json::to_string(&entry_content.pos()).unwrap(),
-            &serde_json::to_string(&vec![entry_content.format()]).unwrap(),
-            dict_id])?;
-
-        let mut stmt2 = db.prepare("SELECT last_insert_rowid()")?;
-        let mut result = stmt2.query(NO_PARAMS)?;
-
-        if let Some(r) = result.next()? {
-            let row_id : u32 = r.get(0)?;
-            let mut stmt3 = db.prepare("INSERT INTO variants (entry_id, form) VALUES (?,?)")?;
-            stmt3.execute(&[&format!("{}",row_id), entry_content.lemma()])?;
-            for v in entry_content.variants() {
-                stmt3.execute(&[&format!("{}",row_id), &v])?;
-            }
-
-            match entry_content {
-                EntryContent::Json(_) => {
-                    let mut stmt4 = db.prepare("INSERT INTO json_entries (entry_id, json) VALUES(?,?)")?;
-                    stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
-                }
-                EntryContent::Tei(_,_,_,_,_) => {
-                    let mut stmt4 = db.prepare("INSERT INTO json_entries (entry_id, json) VALUES(?,?)")?;
-                    stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
-                }
-                EntryContent::OntoLex(_,_,_,_,_) => {
-                    let mut stmt4 = db.prepare("INSERT INTO json_entries (entry_id, json) VALUES(?,?)")?;
-                    stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
-                }
-            }
-                    
-            
-            Ok(())
+        let row_id : u32 = if let Ok(r) = db.query_row("SELECT row_id FROM entries WHERE id=? AND dict=?", &[entry_content.id(), dict_id], |r| r.get(0)) {
+            r
         } else {
-            panic!("After INSERT did not return for last_insert_rowid()")    
+
+            let mut stmt = db.prepare("INSERT OR REPLACE INTO entries (release, lemma, id, part_of_speech, format, dict) VALUES (?,?,?,?,?,?)")?;
+            stmt.execute(&[
+                &serde_json::to_string(&release).unwrap(),
+                entry_content.lemma(),
+                entry_content.id(),
+                &serde_json::to_string(&entry_content.pos()).unwrap(),
+                &serde_json::to_string(&vec![entry_content.format()]).unwrap(),
+                dict_id])?;
+
+            let mut stmt2 = db.prepare("SELECT last_insert_rowid()")?;
+            let mut result = stmt2.query(NO_PARAMS)?;
+
+            if let Some(r) = result.next()? {
+                r.get(0)? 
+            } else {
+                panic!("After INSERT did not return for last_insert_rowid()")    
+            }
+        };
+
+        let mut stmt3 = db.prepare("INSERT INTO variants (entry_id, form) VALUES (?,?)")?;
+        stmt3.execute(&[&format!("{}",row_id), entry_content.lemma()])?;
+        for v in entry_content.variants() {
+            stmt3.execute(&[&format!("{}",row_id), &v])?;
         }
+
+        match entry_content {
+            EntryContent::Json(_) => {
+                let mut stmt4 = db.prepare("INSERT INTO json_entries (entry_id, json) VALUES(?,?)")?;
+                stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
+            }
+            EntryContent::Tei(_,_,_,_,_) => {
+                let mut stmt4 = db.prepare("INSERT INTO tei_entries (entry_id, tei) VALUES(?,?)")?;
+                stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
+            }
+            EntryContent::OntoLex(_,_,_,_,_) => {
+                let mut stmt4 = db.prepare("INSERT INTO ontolex_entries (entry_id, ontolex) VALUES(?,?)")?;
+                stmt4.execute(&[&format!("{}",row_id), &entry_content.content()])?;
+            }
+        }
+
+
+        Ok(())
 
     }
 }
@@ -342,26 +352,16 @@ impl Backend for RusqliteState {
 
 }
 
-fn empty_str_to_none(s : String) -> Option<String> {
-    if s == "" {
-        None
-    } else {
-        Some(s)
-    }
-}
-
 #[test]
 fn test_create_db() {
-    let tmp_db_path = String::from("test-tmp.db");
-    let state = RusqliteState::new(tmp_db_path.clone());
+    let state = RusqliteState::new("test-tmp.db");
     state.load(Release::PUBLIC, HashMap::new(), HashMap::new()).unwrap();
     fs::remove_file("test-tmp.db").unwrap();
 }
 
 #[test]
 fn test_load_db() {
-    let tmp_db_path = String::from("test-tmp2.db");
-    let state = RusqliteState::new(tmp_db_path.clone());
+    let state = RusqliteState::new("test-tmp2.db");
     let mut dictionaries = HashMap::new();
     dictionaries.insert("dict1".to_string(),
         Dictionary {
@@ -401,8 +401,7 @@ fn test_load_db() {
 
 #[test]
 fn test_backend() {
-    let tmp_db_path = String::from("test-tmp3.db");
-    let state = RusqliteState::new(tmp_db_path.clone());
+    let state = RusqliteState::new("test-tmp3.db");
     let mut dictionaries = HashMap::new();
     dictionaries.insert("dict1".to_string(),
         Dictionary {
@@ -464,24 +463,24 @@ fn test_backend() {
     assert_eq!(list.len(), 1);
 
   
-    let lookup = state.lookup("dict1", "example", None, None, None, false).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), None, None, false).unwrap();
-    let lookup = state.lookup("dict1", "example", None, Some(1), None, false).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), Some(1), None, false).unwrap();
-    let lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), false).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), false).unwrap();
-    let lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
-    let lookup = state.lookup("dict1", "example", None, None, None, true).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), None, None, true).unwrap();
-    let lookup = state.lookup("dict1", "example", None, Some(1), None, true).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), Some(1), None, true).unwrap();
-    let lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), true).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), true).unwrap();
-    let lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
-    let lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, None, None, false).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), None, None, false).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, Some(1), None, false).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), Some(1), None, false).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), false).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), false).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), false).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, None, None, true).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), None, None, true).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, Some(1), None, true).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), Some(1), None, true).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, None, Some(PartOfSpeech::ADJ), true).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), None, Some(PartOfSpeech::ADJ), true).unwrap();
+    let _lookup = state.lookup("dict1", "example", None, Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
+    let _lookup = state.lookup("dict1", "example", Some(0), Some(1), Some(PartOfSpeech::ADJ), true).unwrap();
 
-    let entry_json = state.entry_json("dict1", "test").unwrap();
+    let _entry_json = state.entry_json("dict1", "test").unwrap();
     state.entry_ontolex("dict1","test").err().unwrap();
     state.entry_tei("dict1","test").err().unwrap();
     fs::remove_file("test-tmp3.db").unwrap();

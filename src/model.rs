@@ -33,6 +33,15 @@ quick_error! {
         Json(err : serde_json::Error) {
             from()
         }
+        Rdf(err : crate::rdf::turtle::TurtleParserError) {
+            from()
+        }
+        Io(err : std::io::Error) {
+            from()
+        }
+        OntoLex(msg : String) {
+            description(msg)
+        }
         Other(err : String) {
             description(err)
         }

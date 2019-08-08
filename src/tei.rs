@@ -1,5 +1,6 @@
 use std::io::Read;
-use crate::model::{EDSState, Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech, EntryContent};
+use crate::model::{Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech, EntryContent};
+use crate::BackendImpl;
 
 use xml::reader::{EventReader, XmlEvent};
 use xml::name::OwnedName;
@@ -10,8 +11,9 @@ use xml::escape::escape_str_attribute;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-pub fn parse<R : Read>(input : R, id : &str, release : Release,
-                   genre : Vec<Genre>) -> EDSState {
+pub fn parse<R : Read,F>(input : R, id : &str, release : Release,
+                   genre : Vec<Genre>, foo : F) -> BackendImpl 
+    where F : FnOnce(Release, HashMap<String,Dictionary>, HashMap<String, Vec<EntryContent>>) -> BackendImpl {
     let parser = EventReader::new(input);
 
     let mut target_language = Vec::new();
@@ -221,7 +223,7 @@ pub fn parse<R : Read>(input : R, id : &str, release : Release,
        build_entries(&id, &mut dict_entries, &entries, &src_lang);
     }
  
-    EDSState::new(release, dictionaries, dict_entries)
+    foo(release, dictionaries, dict_entries)
 }
 
 fn build_entries(dict_id : &str,
@@ -350,8 +352,10 @@ enum State {
     Variant
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::EDSState;
 
     #[test]
     fn test_load_tei() {
@@ -450,13 +454,17 @@ mod tests {
     </text>
 </TEI>";
 
-        parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new());
+        parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new(), |r,d,e| {
+            BackendImpl::Mem(EDSState::new(r,d,e)) 
+        });
     }
 
     #[test]
     fn test_example() {
         let x : &[u8] = include_bytes!("../examples/example-tei.xml");
-        let state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new());
+        let _state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new(), |r,d,e| {
+            BackendImpl::Mem(EDSState::new(r,d,e)) 
+        });
         //assert_eq!(state.dictionaries.lock().unwrap().len(), 1);
         //assert!(state.entries_lemmas.lock().unwrap().contains_key("exmaple-tei"));
         //assert!(state.entries_lemmas.lock().unwrap().get("exmaple-tei").unwrap().contains_key("girl"));

@@ -11,7 +11,7 @@ type Result<T> = result::Result<T, TurtleParserError>;
 #[grammar = "rdf/turtle.pest"]
 struct TurtleParser;
 
-fn parse_turtle(data : &str) -> Result<Vec<Triple>> {
+pub fn parse_turtle(data : &str) -> Result<Vec<Triple>> {
     let pairs = TurtleParser::parse(Rule::turtle_doc, data)
         .map_err(|e| TurtleParserError::Parse(format!("{}", e)))?;
 

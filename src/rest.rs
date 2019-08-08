@@ -3,8 +3,8 @@ use gotham::state::State;
 use hyper::Body;
 use gotham::helpers::http::response::create_response;
 use mime;
-use crate::model::{EDSState, Backend, BackendError};
-use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams};
+use crate::model::{Backend, BackendError};
+use crate::{AboutParams, ListQueryParams, ListPathParams, LookupQueryParams, LookupPathParams, EntryPathParams, BackendImpl};
 use gotham::state::FromState;
 
 #[derive(Serialize)]
@@ -14,7 +14,7 @@ struct DictionaryList {
 
 /// Handle the "Get dictionaries" request
 pub fn dictionaries(state : State) -> (State, Response<Body>) {
-    let data = EDSState::borrow_from(&state);
+    let data = BackendImpl::borrow_from(&state);
 
     match data.dictionaries() {
         Ok(dd) => {
@@ -43,7 +43,7 @@ pub fn dictionaries(state : State) -> (State, Response<Body>) {
 
 /// Handle the "About the dictionary" request
 pub fn about(state : State) -> (State, Response<Body>) {
-    let data = EDSState::borrow_from(&state);
+    let data = BackendImpl::borrow_from(&state);
     let params = AboutParams::borrow_from(&state);
 
     let res = match data.about(&params.dictionary) {
@@ -75,7 +75,7 @@ pub fn about(state : State) -> (State, Response<Body>) {
 
 /// Handle the "Get all lemmas" request
 pub fn list(state : State) -> (State, Response<Body>) {
-    let data = EDSState::borrow_from(&state);
+    let data = BackendImpl::borrow_from(&state);
     let params1 = ListPathParams::borrow_from(&state);
     let params2 = ListQueryParams::borrow_from(&state);
 
@@ -109,7 +109,7 @@ pub fn list(state : State) -> (State, Response<Body>) {
 /// Handle the "Headword lookup" request
 pub fn lookup(state : State) -> (State, Response<Body>) {
     let res = {
-        let data = EDSState::borrow_from(&state);
+        let data = BackendImpl::borrow_from(&state);
         let params1 = LookupPathParams::borrow_from(&state);
         let params2 = LookupQueryParams::borrow_from(&state);
 
@@ -145,7 +145,7 @@ pub fn lookup(state : State) -> (State, Response<Body>) {
 /// Handle the "Entry as JSON" request
 pub fn entry_json(state : State) -> (State, Response<Body>) {
     let res = {
-        let data = EDSState::borrow_from(&state);
+        let data = BackendImpl::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
         match data.entry_json(&params1.dictionary, &params1.id) {
             Ok(entry) => {
@@ -177,7 +177,7 @@ pub fn entry_json(state : State) -> (State, Response<Body>) {
 /// Handle the "Entry as RDF" request
 pub fn entry_ontolex(state : State) -> (State, Response<Body>) {
     let res = {
-        let data = EDSState::borrow_from(&state);
+        let data = BackendImpl::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
         match data.entry_ontolex(&params1.dictionary, &params1.id) {
             Ok(entry) => {
@@ -209,7 +209,7 @@ pub fn entry_ontolex(state : State) -> (State, Response<Body>) {
 /// Handle the "Entry as TEI" request
 pub fn entry_tei(state : State) -> (State, Response<Body>) {
     let res = {
-        let data = EDSState::borrow_from(&state);
+        let data = BackendImpl::borrow_from(&state);
         let params1 = EntryPathParams::borrow_from(&state);
         match data.entry_tei(&params1.dictionary, &params1.id) {
             Ok(entry) => {

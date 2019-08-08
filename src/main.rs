@@ -1,3 +1,4 @@
+#![feature(drain_filter)]
 extern crate gotham;
 extern crate http;
 extern crate hyper;
@@ -21,6 +22,7 @@ mod model;
 mod tei;
 mod rdf;
 mod sqlite;
+mod ontolex;
 
 use gotham::state::State;
 use gotham::router::Router;
@@ -42,9 +44,10 @@ use std::fs::File;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech, EntryContent};
+use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech, EntryContent, BackendError, Entry};
+use crate::sqlite::RusqliteState;
 
-fn router(model : EDSState) -> Router {
+fn router(model : BackendImpl) -> Router {
     let middleware = StateMiddleware::new(model);
     let pipeline = single_middleware(middleware);
     let (chain, pipelines) = single_pipeline(pipeline);
@@ -153,11 +156,20 @@ fn main() {
                     .arg(Arg::with_name("id")
                         .help("The identifier of the dataset")
                         .long("id")
-                        .takes_value(true))                        
+                        .takes_value(true))
+                    .arg(Arg::with_name("no_sql")
+                        .help("Do not use SQLite (all data is temporary and session only)")
+                        .long("no-sql"))                        
+                    .arg(Arg::with_name("db_path")
+                        .help("The path to use for the database (Default: eds.db)")
+                        .long("db-path")
+                        .takes_value(true))
                     .get_matches();
 
     let format = matches.value_of("data").unwrap_or("");
     let data : &str = matches.value_of("data").expect("The data paramter is required");
+    let no_sql = matches.value_of("no_sql").is_some();
+    let db_path = matches.value_of("db_path").unwrap_or("eds.db");
     let release = matches.value_of("release").and_then(|x| model::Release::from_str(x).ok()).unwrap_or_else(|| {
         eprintln!("Release is not specified or bad value, assuming PUBLIC");
         model::Release::PUBLIC
@@ -172,8 +184,14 @@ fn main() {
             dict_map.insert(id.clone(), dj.meta);
             entry_map.insert(id, dj.entries.into_iter().map(|x| EntryContent::Json(x)).collect());
         }
-        EDSState::new(release, dict_map, entry_map)
-    } else if format == "tei" || data.ends_with("tei") || data.ends_with("xml") {
+        if no_sql {
+            BackendImpl::Mem(EDSState::new(release, dict_map, entry_map))
+        } else {
+            let db = RusqliteState::new(db_path);
+            db.load(release, dict_map, entry_map).expect("Could not load database");
+            BackendImpl::DB(db)
+        }
+    } else if format == "tei" || data.ends_with(".tei") || data.ends_with(".xml") {
         let mut genres = Vec::new();
         if let Some(gs) = matches.values_of("genre") {
             for g in gs {
@@ -183,7 +201,35 @@ fn main() {
         let id = matches.value_of("id").expect("ID is required for TEI files");
 
         tei::parse(File::open(data).expect("Could not open data file"), 
-                id, release, genres)
+                id, release, genres, |r,d,e| {
+                    if no_sql {
+                        BackendImpl::Mem(EDSState::new(r,d,e))
+                    } else {
+                        let db = RusqliteState::new(db_path);
+                        db.load(r,d,e).expect("Could not load database");
+                        BackendImpl::DB(db)
+                    }
+                })
+    } else if format == "ontolex" || data.ends_with(".rdf") || data.ends_with(".ttl") {
+        let mut genres = Vec::new();
+        if let Some(gs) = matches.values_of("genre") {
+            for g in gs {
+                genres.push(model::Genre::from_str(g).unwrap());
+            }
+        };
+        let id = matches.value_of("id").expect("ID is required for TEI files");
+
+        ontolex::parse(File::open(data).expect("Could not open data file"), 
+                id, release, genres, |r,d,e| {
+                    if no_sql {
+                        Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
+                    } else {
+                        let db = RusqliteState::new(db_path);
+                        db.load(r,d,e).expect("Could not load database");
+                        Ok(BackendImpl::DB(db))
+                    }
+                }).expect("Could not read OntoLex file")
+ 
     } else {
         panic!("Unsupported format");
     };
@@ -197,4 +243,65 @@ fn main() {
 pub struct DictJson {
     meta : Dictionary,
     entries : Vec<JsonEntry>
+}
+
+#[derive(Clone,StateData)]
+pub enum BackendImpl {
+    Mem(EDSState),
+    DB(RusqliteState)
+}
+
+impl model::Backend for BackendImpl {
+    /// List the identifiers for all dictionaries
+    fn dictionaries(&self) -> Result<Vec<String>,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.dictionaries(),
+            BackendImpl::DB(s) => s.dictionaries()
+        }
+    }
+    /// Obtain the metadata about a given dictionary
+    fn about(&self, dictionary : &str) -> Result<Dictionary,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.about(dictionary),
+            BackendImpl::DB(s) => s.about(dictionary)
+        }
+    }
+    /// List all entries in a dictrionary
+    fn list(&self, dictionary : &str, offset : Option<usize>, 
+            limit : Option<usize>) -> Result<Vec<Entry>,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.list(dictionary, offset, limit),
+            BackendImpl::DB(s) => s.list(dictionary, offset, limit)
+        }
+    }
+    /// Search the dictionary by headword
+    fn lookup(&self, dictionary : &str, headword : &str,
+              offset : Option<usize>, limit : Option<usize>,
+              part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Result<Vec<Entry>,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.lookup(dictionary, headword, offset, limit, part_of_speech, inflected),
+            BackendImpl::DB(s) => s.lookup(dictionary, headword, offset, limit, part_of_speech, inflected),
+        }
+    }
+    /// Get the content as Json
+    fn entry_json(&self, dictionary : &str, id : &str) -> Result<JsonEntry,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.entry_json(dictionary, id),
+            BackendImpl::DB(s) => s.entry_json(dictionary, id),
+        }
+    }
+    /// Get the content as OntoLex
+    fn entry_ontolex(&self, dictionary : &str, id : &str) -> Result<String,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.entry_ontolex(dictionary, id),
+            BackendImpl::DB(s) => s.entry_ontolex(dictionary, id)
+        }
+    }
+    /// Get the content as TEI
+    fn entry_tei(&self, dictionary : &str, id : &str) -> Result<String,BackendError> {
+        match self { 
+            BackendImpl::Mem(s) => s.entry_tei(dictionary, id),
+            BackendImpl::DB(s) => s.entry_tei(dictionary, id)
+        }
+    }
 }
