@@ -11,23 +11,32 @@ pub fn parse<R : Read, F>(mut input : R, id : &str, release : Release,
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
         let mut content = String::new();
         input.read_to_string(&mut content)?;
+        parse_str(&content, id, release, genre, foo)
+}
 
-        let triples = parse_turtle(&content)?;
-        let mut entry_triple = Vec::new();
+pub fn parse_str<F>(content : &str, id : &str, release : Release,
+    genre : Vec<Genre>, foo : F) -> Result<BackendImpl,BackendError>
+    where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
+        let triples = parse_turtle(content)?;
         let mut dictionary = HashMap::new();
         let mut entries = HashMap::new();
         let mut current_dictionary = String::from(id);
 
 
-        for triple in triples.iter() {
-            if triple.1 == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
-                triple.2 == Value::make_uri("http://www.w3.org/ns/lemon/lime#Lexicon") {
-                if let Resource::Named(ref subj) = triple.0 {
-                    current_dictionary = subj.uri()
-                }
-            } else if triple.1 == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
-                is_lexical_entry_uri(&triple.2) {
-                add_entries(&mut entries, &current_dictionary, &mut entry_triple)?;
+        let mut iter = triples.iter().peekable();
+        while let Some(Triple(ref subj, ref pred, ref obj)) = iter.peek() {
+            if *pred == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
+                *obj == Value::make_uri("http://www.w3.org/ns/lemon/lime#Lexicon") {
+                let mut dict_triples = iter.clone().take_while(|t| 
+                    t.1 != NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"))
+                    .collect();
+                read_dictionary(&current_dictionary, &dict_triples);
+            } else if *pred == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
+                is_lexical_entry_uri(&obj) {
+                let mut entry_triples = iter.clone().take_while(|t|
+                    t.1 != NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") ||
+                    !is_lexical_entry_uri(&t.2)).collect();
+                add_entries(&mut entries, &current_dictionary, &mut entry_triples)?;
             }
         }
 
@@ -41,8 +50,12 @@ fn is_lexical_entry_uri(value : &Value) -> bool {
     *value == Value::make_uri("http://www.w3.org/ns/lemon/ontolex#Affix")
 }
 
+fn read_dictionary(dict_id : &str, triples : &Vec<&Triple>) -> Result<Dictionary, BackendError> {
+    panic!("TODO")
+}
+
 fn add_entries(entries : &mut HashMap<String, Vec<EntryContent>>, dict_id : &str,
-    entry_triples : &mut Vec<Triple>) -> Result<(),BackendError> {
+    entry_triples : &mut Vec<&Triple>) -> Result<(),BackendError> {
     let id = extract_id(entry_triples)?;
     let lemma = extract_lemma(&id, entry_triples)?;
     let pos = extract_pos(&id, entry_triples);
@@ -55,7 +68,7 @@ fn add_entries(entries : &mut HashMap<String, Vec<EntryContent>>, dict_id : &str
     Ok(())
 }
 
-fn extract_id(triples : &Vec<Triple>) -> Result<String,BackendError> {
+fn extract_id(triples : &Vec<&Triple>) -> Result<String,BackendError> {
     triples.iter().find(|t|
         t.0.is_uri() &&
         t.1 == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
@@ -70,7 +83,7 @@ fn extract_id(triples : &Vec<Triple>) -> Result<String,BackendError> {
         })
 }
 
-fn extract_lemma(id : &str, triples : &Vec<Triple>) -> Result<String,BackendError> {
+fn extract_lemma(id : &str, triples : &Vec<&Triple>) -> Result<String,BackendError> {
     triples.iter().find(|t|
         t.0 == Resource::make_uri(id) &&
         t.1 == NamedNode::make_uri("http://www.w3.org/ns/lemon/ontolex#canonicalForm"))
@@ -93,7 +106,7 @@ fn extract_lemma(id : &str, triples : &Vec<Triple>) -> Result<String,BackendErro
         })
 }
 
-fn extract_pos(id : &str, triples : &Vec<Triple>) -> Vec<PartOfSpeech> {
+fn extract_pos(id : &str, triples : &Vec<&Triple>) -> Vec<PartOfSpeech> {
     triples.iter().filter(|t|
         t.0 == Resource::make_uri(id) &&
         t.1 == NamedNode::make_uri("http://www.lexinfo.net/ontology/2.0/lexinfo#partOfSpeech"))
@@ -128,7 +141,7 @@ fn map_pos_value(obj : &NamedNode) -> Option<PartOfSpeech> {
     }
 }
 
-fn extract_vars(id : &str, triples : &Vec<Triple>) -> Vec<String> {
+fn extract_vars(id : &str, triples : &Vec<&Triple>) -> Vec<String> {
     triples.iter().filter(|t|
         t.0 == Resource::make_uri(id) &&
         t.1 == NamedNode::make_uri("http://www.w3.org/ns/lemon/ontolex#otherForm"))
@@ -150,7 +163,7 @@ fn extract_vars(id : &str, triples : &Vec<Triple>) -> Vec<String> {
         }).collect()
 }
 
-fn format_triples(triples : &Vec<Triple>) -> String {
+fn format_triples(triples : &Vec<&Triple>) -> String {
     let mut out = String::new();
     let mut subject_pred : Option<(Resource, NamedNode)> = None;
     let mut prefixes = HashMap::new();
@@ -194,7 +207,7 @@ fn format_triples(triples : &Vec<Triple>) -> String {
 
 struct WriteState<'a> {
     out : String,
-    iter : Peekable<std::slice::Iter<'a, Triple>>,
+    iter : Peekable<std::slice::Iter<'a, &'a Triple>>,
     prefixes : HashMap<String, Namespace>,
     bnode_ref_count : HashMap<String, usize>,
     indent : usize
@@ -289,113 +302,49 @@ fn write_triple(triple : &Triple, state : &mut WriteState) {
     write_value(&triple.2, state);
 }
 
+#[cfg(test)]
+use crate::model::EDSState;
+
+#[test]
+fn test_read_ontolex() {
+    let ontolex = "@prefix lime: <http://www.w3.org/ns/lemon/lime#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<#dictionary> a lime:Lexicon ;
+    lime:language \"en\" ;
+    dct:license <http://www.example.com/license> ;
+    dct:creator [
+        foaf:name \"Joe Bloggs\" ;
+        foaf:mbox <mailto:test@example.com> ;
+        foaf:homepage <http://www.example.com/>
+    ] ;
+    dct:publisher [
+        foaf:name \"Publisher\"
+    ] .
+
+<#entry1> a ontolex:LexicalEntry ;
+    ontolex:canonicalForm [
+        ontolex:writtenRep \"cat\"@en 
+    ] ;
+    ontolex:sense [
+        skos:definition \"This is a definition\"@en
+    ] .
+
+<#entry2>  a ontolex:LexicalEntry ;
+    ontolex:canonicalForm [
+        ontolex:writtenRep \"dog\"@en 
+    ] ;
+    ontolex:sense [
+        ontolex:reference <http://www.example.com/ontology>  
+    ] .";
+
+    let dictionary = parse_str(ontolex, "id", Release::PUBLIC, vec![Genre::gen], |r,d,e| {
+        Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
+    }).unwrap();
+
+}
 
 
-//fn format_triples(triples : &mut Vec<Triple>) -> String {
-//    let mut data = String::new();
-//    triples.sort();
-//    let mut subject_pred : Option<(Resource,NamedNode)> = None;
-//    let mut indent = 0;
-//
-//    let mut bnode_refs : HashMap<String, usize> = HashMap::new();
-//
-//    for triple in triples.iter() {
-//        match triple.2 {
-//            Value::Resource(ref r) if r.is_bnode() => {
-//                bnode_refs.entry(triple.2.to_string()).and_modify(|e| *e += 1).or_insert(1);
-//            },
-//            _ => {}
-//        }
-//    }
-//
-//    let btriples : Vec<Triple> = triples.drain_filter(|t| {
-//        t.0.is_bnode() && bnode_refs.get(&t.0.to_string()) == Some(&1)
-//    }).collect();
-//
-//    while let Some(t) = triples.pop() {
-//        if let Some((subj,pred)) = subject_pred {
-//            if subj == triple.0 {
-//                if pred == triple.1 {
-//                    data.push_str(", ");
-//                    write_obj(&triple.2, &mut data, &mut btriples, &bnode_refs);
-//                } else {
-//                    data.push_str(";\n");
-//                    indent = write_pred_obj(&triple.1, &triple.2, &mut data, indent);
-//                }
-//            } else {
-//                data.push_str(".\n\n");
-//                indent = write_triple(&triple, &mut data, indent)
-//            }
-//        } else {
-//            indent = write_triple(triple, &mut data, indent);
-//        }
-//        subject_pred = Some((triple.0.clone(), triple.1.clone()))
-//    }
-//        
-//    panic!("TODO")
-//}
-//
-//fn write_triple(triple : &Triple, out : &mut String, indent : u32, prefixes : &mut HashMap<String, Namespace>) -> u32 {
-//    panic!("TODO")
-//}
-//
-//fn write_pred_obj(pred : &NamedNode, obj : &Value, out : &mut String, prefixes : &mut HashMap<String, Namespace>, btriples : &mut Vec<Triple>, indent : usize) {
-//    panic!("TODO")
-//}
-//
-//fn write_obj(obj : &Value, out : &mut String, prefixes : &mut HashMap<String, Namespace>,
-//    btriples : &mut Vec<Triple>, indent : usize) {
-//    match obj {
-//        Value::Literal(ref l) => write_literal(l, out, prefixes),
-//        Value::Resource(ref r) => write_resource(r, out, prefixes)
-//    }
-//    panic!("TODO")
-//}
-//
-//fn write_literal(obj : &Literal, out : &mut String, prefixes : &mut HashMap<String, Namespace>) {
-//    match obj {
-//        Literal::PlainLiteral(ref s) => out.push_str(&format!("\"{}\" ", s.replace("\"","\\\""))),
-//        Literal::LangLiteral(ref s, ref l) => out.push_str(&format!("\"{}\"@{} ", s.replace("\"","\\\""),l)),
-//        Literal::TypedLiteral(ref s, ref t) => {
-//            out.push_str(&format!("\"{}\"^^", s.replace("\"", "\\\"")));
-//            write_named_node(t, out, prefixes);
-//        }
-//    }
-//}
-//
-//fn write_resource(r : &Resource, out : &mut String, prefixes : &mut HashMap<String, Namespace>, btriples : &mut Vec<Triple>, indent : usize) {
-//    match r {
-//        Resource::BlankNode(ref bn) => write_bnode(bn, out, prefixes, btriples, indent),
-//        Resource::Named(ref nn) => write_named_node(nn, out, prefixes)
-//    }
-//}
-//
-//fn write_named_node(obj : &NamedNode, out : &mut String, prefixes : &mut HashMap<String, Namespace>) {
-//    match obj {
-//        NamedNode::URIRef(uri) => out.push_str(&format!("<{}> ", uri)),
-//        NamedNode::QName(namespace, suffix) => {
-//           let z = prefixes.get(&namespace.0);
-//           if z == None {
-//               prefixes.insert(namespace.0.clone(), namespace.clone());
-//           } else if z != Some(&namespace.1) {
-//               panic!("Redefining a namespace");
-//           }
-//           out.push_str(&format!("{}:{} ", namespace.0, suffix));
-//        }
-//    }
-//}
-//
-//fn write_bnode(bnode_id : &str, out : &mut String, prefixes : &mut HashMap<String, Namespace>,
-//    btriples : &mut Vec<Triple>, indent : usize) {
-//    let bn = Resource::BlankNode(bnode_id.to_string());
-//    let rel_triples : Vec<Triple> = btriples.drain_filter(|t| t.0 == bn).collect();
-//    if rel_triples.is_empty() {
-//        out.push_str(&format!("_:{} ", bnode_id));
-//    } else {
-//        out.push_str("[\n");
-//        for t in rel_triples.into_iter() {
-//            write_pred_obj(t.1, t.2, out, prefixes, btriples, indent + 1);
-//        }
-//        out.push_str("] ");
-//    }
-//}

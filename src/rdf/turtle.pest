@@ -1,4 +1,4 @@
-turtle_doc = { (statement ~ ws*)* }
+turtle_doc = { ws* ~ (statement ~ ws*)* }
 
 statement = _{ (directive ~ ws* ~ "." | triples ~ ws* ~ "." ) }
 
