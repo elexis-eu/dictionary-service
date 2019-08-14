@@ -185,7 +185,7 @@ pub fn entry_ontolex(state : State) -> (State, Response<Body>) {
                     &state,
                     StatusCode::OK,
                     "text/turtle".parse().unwrap(),
-                    serde_json::to_vec(&entry).expect("Cannot serialize entry"))
+                    entry)
             },
             Err(BackendError::NotFound) => {
                 create_response(

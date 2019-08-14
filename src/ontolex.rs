@@ -6,6 +6,20 @@ use std::iter::Peekable;
 use crate::rdf::turtle::parse_turtle;
 use crate::rdf::model::{NamedNode,Value,Resource,Triple,Namespace,Literal};
 
+fn make_id(s : &str) -> String {
+    let e1 : Vec<&str> = s.split("#").collect();
+    if e1.len() > 1 {
+        e1[e1.len() - 1].to_owned()
+    } else {
+        let e2 : Vec<&str> = s.split("/").collect();
+        if e2.len() > 1 {
+            e2[e2.len() - 1].to_owned()
+        } else {
+            s.to_owned()
+        }
+    }
+}
+
 pub fn parse<R : Read, F>(mut input : R, release : Release,
     genre : Vec<Genre>, foo : F) -> Result<BackendImpl,BackendError>
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
@@ -32,10 +46,10 @@ pub fn parse_str<F>(content : &str, release : Release,
                         t.1 != NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"))
                         .collect();
                     let dict = read_dictionary(release.clone(), genre.clone(), &dict_triples)?;
-                    dictionary.insert(r.uri(), dict);
+                    dictionary.insert(make_id(&r.uri()), dict);
                 } else if *pred == NamedNode::make_uri("http://www.w3.org/ns/lemon/lime#entry") {
                     if let Value::Resource(Resource::Named(r2)) = obj {
-                        entry2dict.insert(r2.uri(), r.uri());
+                        entry2dict.insert(r2.uri(), make_id(&r.uri()));
                     }
                 } else if *pred == NamedNode::make_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type") && 
                     is_lexical_entry_uri(&obj) {
@@ -156,7 +170,7 @@ fn add_entries(id : &str,
     let pos = extract_pos(id, entry_triples);
     let vars = extract_vars(id, entry_triples);
     let data = format_triples(entry_triples);
-    Ok(EntryContent::OntoLex(id.to_owned(), lemma, pos, vars, data))
+    Ok(EntryContent::OntoLex(make_id(id), lemma, pos, vars, data))
 }
 
 fn extract_lemma(id : &str, triples : &Vec<&Triple>) -> Result<String,BackendError> {
@@ -441,7 +455,7 @@ fn test_read_ontolex() {
         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
     }).unwrap();
     assert_eq!(dictionary.dictionaries().unwrap().len(), 1);
-    let dict = dictionary.about("#dictionary").unwrap();
+    let dict = dictionary.about("dictionary").unwrap();
     assert_eq!(dict.release, Release::PUBLIC);
     assert_eq!(dict.source_language, "en");
     assert_eq!(dict.target_language, vec!["en"]);
@@ -458,25 +472,25 @@ fn test_read_ontolex() {
         url: None
     }]);
 
-    let entry_set1 = dictionary.lookup("#dictionary", "cat", None, None, None, false).unwrap();
+    let entry_set1 = dictionary.lookup("dictionary", "cat", None, None, None, false).unwrap();
     assert_eq!(entry_set1.len(), 1);
     let ref entry1 = entry_set1[0];
     assert_eq!(entry1.release, Release::PUBLIC);
     assert_eq!(entry1.lemma, "cat");
-    assert_eq!(entry1.id, "#entry1");
+    assert_eq!(entry1.id, "entry1");
     assert_eq!(entry1.part_of_speech, vec![PartOfSpeech::NOUN]);
     assert_eq!(entry1.formats, vec![Format::ontolex]);
 
-    let entry_set2 = dictionary.lookup("#dictionary", "dog", None, None, None, false).unwrap();
+    let entry_set2 = dictionary.lookup("dictionary", "dog", None, None, None, false).unwrap();
     assert_eq!(entry_set2.len(), 1);
     let ref entry2 = entry_set2[0];
     assert_eq!(entry2.release, Release::PUBLIC);
     assert_eq!(entry2.lemma, "dog");
-    assert_eq!(entry2.id, "#entry2");
+    assert_eq!(entry2.id, "entry2");
     assert_eq!(entry2.part_of_speech, vec![]);
     assert_eq!(entry2.formats, vec![Format::ontolex]);
 
-    let entry1_ontolex = dictionary.entry_ontolex("#dictionary", "#entry1").unwrap();
+    let entry1_ontolex = dictionary.entry_ontolex("dictionary", "entry1").unwrap();
 
     assert_eq!(entry1_ontolex, "<#entry1> a ontolex:LexicalEntry ;
   lexinfo:partOfSpeech lexinfo:commonNoun ;
