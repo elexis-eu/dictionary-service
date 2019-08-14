@@ -38,11 +38,12 @@ use mime::Mime;
 
 use hyper::Body;
 
-use clap::{App, Arg};
+use clap::{App, Arg, SubCommand, ArgMatches};
 
 use std::fs::File;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::error::Error;
 
 use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech, EntryContent, BackendError, Entry};
 use crate::sqlite::RusqliteState;
@@ -128,14 +129,58 @@ pub fn index(state : State) -> (State, Response<Body>) {
 }
 
 fn main() {
-    let matches = App::new("ELEXIS Dictionary Service")
-                    .version("0.1")
-                    .author("John P. McCrae <john@mccr.ae>")                    
-                    .about("Server for hosting dictionaries so they may be accessed by the Dictionary Matrix")
+    let mut app = App::new("ELEXIS Dictionary Service")
+        .version("0.1")
+        .author("John P. McCrae <john@mccr.ae>")                    
+        .about("Server for hosting dictionaries so they may be accessed by the Dictionary Matrix")
+        .subcommand(SubCommand::with_name("load")
+            .about("Load data into the database")
+            .arg(Arg::with_name("data")
+                .help("The data to host")
+                .required(true)
+                .index(1))
+            .arg(Arg::with_name("format")
+                .help("The format of the input")
+                .value_name("json|ttl|tei")
+                .short("f")
+                .long("format")
+                .takes_value(true))
+            .arg(Arg::with_name("release")
+                .help("The release level of the resource")
+                .takes_value(true)
+                .long("release")
+                .value_name("PUBLIC|NONCOMMERCIAL|RESEARCH|PRIVATE"))
+            .arg(Arg::with_name("genre")
+                .help("The genre(s) of the dataset (comma separated)")
+                .takes_value(true)
+                .use_delimiter(true)
+                .long("genre")
+                .value_name("gen|lrn|ety|spe|his|ort|trm"))
+            .arg(Arg::with_name("id")
+                .help("The identifier of the dataset")
+                .long("id")
+                .takes_value(true))
+            .arg(Arg::with_name("no_sql")
+                .help("Do not use SQLite (all data is temporary and session only)")
+                .long("no-sql"))                        
+            .arg(Arg::with_name("db_path")
+                .help("The path to use for the database (Default: eds.db)")
+                .long("db-path")
+                .takes_value(true)))
+                .subcommand(SubCommand::with_name("start")
+                    .about("Start the server")
+                    .arg(Arg::with_name("port")
+                        .help("The port to start the server on")
+                        .short("p")
+                        .long("port")
+                        .required(false)
+                        .takes_value(true))
                     .arg(Arg::with_name("data")
-                         .help("The data to host")
-                         .required(true)
-                         .index(1))
+                        .help("Also load a single data file")
+                        .short("d")
+                        .long("data")
+                        .required(false)
+                        .takes_value(true))
                     .arg(Arg::with_name("format")
                         .help("The format of the input")
                         .value_name("json|ttl|tei")
@@ -163,11 +208,38 @@ fn main() {
                     .arg(Arg::with_name("db_path")
                         .help("The path to use for the database (Default: eds.db)")
                         .long("db-path")
-                        .takes_value(true))
-                    .get_matches();
+                        .takes_value(true)));
+    let matches = app.clone().get_matches();
+    if let Some(matches) = matches.subcommand_matches("load") {
+        load_data(matches, &mut app);
+    } else if let Some(matches) = matches.subcommand_matches("start") {
+        let state = if matches.value_of("data").is_some() {
+            load_data(matches, &mut app)
+        } else {
+            let path = matches.value_of("db_path").unwrap_or("eds.db");
+            BackendImpl::DB(RusqliteState::new(path))
+        };
+        unsafe {
+        ADDR.1 = u16::from_str(matches.value_of("port").unwrap_or("8000"))
+            .unwrap_or_else(|_| show_help("Port is not an integer value", &mut app));
+        }
+        start_server(state);
+    } else {
+        show_help("Please give a command!", &mut app);
+    }
 
+
+}
+
+fn show_help(msg : &str, app : &mut App) -> ! {
+    eprintln!("{}",msg);
+    app.print_long_help().expect("Could not print help message!");
+    std::process::exit(-1)
+}
+
+fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
     let format = matches.value_of("data").unwrap_or("");
-    let data : &str = matches.value_of("data").expect("The data paramter is required");
+    let data : &str = matches.value_of("data").unwrap_or_else(|| show_help("The data paramter is required", app));
     let no_sql = matches.value_of("no_sql").is_some();
     let db_path = matches.value_of("db_path").unwrap_or("eds.db");
     let release = matches.value_of("release").and_then(|x| model::Release::from_str(x).ok()).unwrap_or_else(|| {
@@ -175,9 +247,11 @@ fn main() {
         model::Release::PUBLIC
     });
     
-    let state = if format == "json" || data.ends_with(".json") {
+    if format == "json" || data.ends_with(".json") {
         let dictionaries : HashMap<String, DictJson> = serde_json::from_reader(
-            File::open(data).expect("Could not open data file")) .expect("Could not read dictionary file");
+            File::open(data).
+            unwrap_or_else(|e| show_help(&format!("Could not open data file: {}", e.description()), app))).
+            unwrap_or_else(|e| show_help(&format!("Could not read dictionary file: {}", e.description()), app));
         let mut dict_map = HashMap::new();
         let mut entry_map = HashMap::new();
         for (id, dj) in dictionaries {
@@ -188,25 +262,27 @@ fn main() {
             BackendImpl::Mem(EDSState::new(release, dict_map, entry_map))
         } else {
             let db = RusqliteState::new(db_path);
-            db.load(release, dict_map, entry_map).expect("Could not load database");
+            db.load(release,dict_map,entry_map).unwrap_or_else(|e| show_help(&format!("Could not load database: {}", e.description()),app));
             BackendImpl::DB(db)
         }
     } else if format == "tei" || data.ends_with(".tei") || data.ends_with(".xml") {
         let mut genres = Vec::new();
         if let Some(gs) = matches.values_of("genre") {
             for g in gs {
-                genres.push(model::Genre::from_str(g).unwrap());
+                genres.push(model::Genre::from_str(g).
+                    unwrap_or_else(|e| show_help(&e, app)));
             }
         };
-        let id = matches.value_of("id").expect("ID is required for TEI files");
+        let id = matches.value_of("id").unwrap_or_else(|| show_help("ID is required for TEI files",app));
 
-        tei::parse(File::open(data).expect("Could not open data file"), 
+        tei::parse(File::open(data)
+            .unwrap_or_else(|e| show_help(&format!("Could not open data file: {}", e.description()),app)), 
                 id, release, genres, |r,d,e| {
                     if no_sql {
                         BackendImpl::Mem(EDSState::new(r,d,e))
                     } else {
                         let db = RusqliteState::new(db_path);
-                        db.load(r,d,e).expect("Could not load database");
+                        db.load(r,d,e).unwrap_or_else(|e| show_help(&format!("Could not load database: {}", e.description()),app));
                         BackendImpl::DB(db)
                     }
                 })
@@ -214,27 +290,35 @@ fn main() {
         let mut genres = Vec::new();
         if let Some(gs) = matches.values_of("genre") {
             for g in gs {
-                genres.push(model::Genre::from_str(g).unwrap());
+                genres.push(model::Genre::from_str(g).
+                    unwrap_or_else(|e| show_help(&e, app)));
             }
         };
 
-        ontolex::parse(File::open(data).expect("Could not open data file"), 
+        ontolex::parse(File::open(data)
+            .unwrap_or_else(|e| show_help(&format!("Could not open data file: {}", e.description()),app)), 
                 release, genres, |r,d,e| {
                     if no_sql {
                         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
                     } else {
                         let db = RusqliteState::new(db_path);
-                        db.load(r,d,e).expect("Could not load database");
+                        db.load(r,d,e).unwrap_or_else(|e| show_help(&format!("Could not load database: {}", e.description()),app));
                         Ok(BackendImpl::DB(db))
                     }
-                }).expect("Could not read OntoLex file")
+                }).unwrap_or_else(|e| show_help(&format!("Could not read OntoLex file: {}", e.description()),app))
  
     } else {
-        panic!("Unsupported format");
-    };
-    let addr = "127.0.0.1:8000";
-    eprintln!("Starting server at {}", addr);
-    gotham::start(addr, router(state));
+        show_help(&format!("Unsupported format: {}", format),app);
+    }
+}
+
+static mut ADDR : (&'static str, u16) = ("127.0.0.1",0);
+
+fn start_server(state : BackendImpl) {
+    unsafe {
+    eprintln!("Starting server at {}:{}", ADDR.0, ADDR.1);
+    gotham::start(&ADDR, router(state));
+    }
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
