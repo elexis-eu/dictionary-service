@@ -189,7 +189,12 @@ impl Backend for EDSState {
         })
             .ok_or(BackendError::NotFound)
     }
-    fn entry_ontolex(&self, _dictionary : &str, _id : &str) -> Result<String,BackendError> { panic!("TODO") }
+    fn entry_ontolex(&self, dictionary : &str, id : &str) -> Result<String,BackendError> { 
+        self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
+            Some(EntryContent::OntoLex(_,_,_,_,content)) => Some(content.clone()),
+            _ => None
+        }).ok_or(BackendError::NotFound)
+    }
     fn entry_tei(&self, dictionary : &str, id : &str) -> Result<String,BackendError> { 
         self.entries_id.lock().unwrap().get(dictionary).and_then(|x| match x.get(id) {
             Some(EntryContent::Tei(_,_,_,_,content)) => Some(content.clone()),

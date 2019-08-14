@@ -78,7 +78,7 @@ fn process_uriref<'i>(p : Pair<'i, Rule>) -> String {
 fn process_triples<'i>(p : Pair<'i, Rule>, state : &mut ParserState) -> Result<()> {
     let mut p3 = p.into_inner();
     let subject = {
-        let mut p4 = p3.next().expect("grammar error (subject)");
+        let p4 = p3.next().expect("grammar error (subject)");
         if p4.as_rule() == Rule::resource {
             process_resource(p4, state)?.as_resource()
         } else if p4.as_rule() == Rule::blank {
@@ -278,6 +278,7 @@ quick_error! {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 

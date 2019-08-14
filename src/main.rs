@@ -217,10 +217,9 @@ fn main() {
                 genres.push(model::Genre::from_str(g).unwrap());
             }
         };
-        let id = matches.value_of("id").expect("ID is required for TEI files");
 
         ontolex::parse(File::open(data).expect("Could not open data file"), 
-                id, release, genres, |r,d,e| {
+                release, genres, |r,d,e| {
                     if no_sql {
                         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
                     } else {

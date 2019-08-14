@@ -12,6 +12,7 @@ pub enum Value {
     Resource(Resource)
 }
 
+#[allow(dead_code)]
 impl Value {
     pub fn make_uri(s : &str) -> Value {
         Value::Resource(Resource::Named(NamedNode::URIRef(s.to_string())))
@@ -59,12 +60,13 @@ impl From<NamedNode> for Value {
 }
 
 /// A RDF resource
-#[derive(PartialEq,Debug,Clone,Eq,Ord,PartialOrd)]
+#[derive(PartialEq,Debug,Clone,Eq,Ord,PartialOrd,Hash)]
 pub enum Resource {
     BlankNode(String),
     Named(NamedNode)
 }
 
+#[allow(dead_code)]
 impl Resource {
     pub fn add_property(&self, pred : NamedNode, value : Value) -> Triple {
         Triple(self.clone(), pred, value)
@@ -108,7 +110,7 @@ impl ToString for Resource {
 }
 
 /// A Resource (non-literal) RDF value
-#[derive(Debug,Clone,Eq)]
+#[derive(Debug,Clone,Eq,Hash)]
 pub enum NamedNode {
     URIRef(String),
     QName(Namespace, String)
@@ -190,9 +192,10 @@ impl ToString for Literal {
     }
 }
 
-#[derive(PartialEq,Debug,Clone,Eq)]
+#[derive(PartialEq,Debug,Clone,Eq,Hash)]
 pub struct Namespace(pub String,pub String);
 
+#[allow(dead_code)]
 impl Namespace {
     pub fn new(abbrev : &str, prefix : &str) -> Namespace {
         Namespace(abbrev.to_string(), prefix.to_string())
