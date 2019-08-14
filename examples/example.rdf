@@ -16,7 +16,7 @@
     dct:publisher [
         foaf:name "Publisher"
     ] ;
-    lime:entry <#entry1>, <#entry2> .
+    lime:entry <#entry1>, <#test> .
 
 <#entry1> a ontolex:LexicalEntry ;
     lexinfo:partOfSpeech lexinfo:commonNoun ;
@@ -27,7 +27,7 @@
         skos:definition "This is a definition"@en
     ] .
 
-<#entry2>  a ontolex:LexicalEntry ;
+<#test>  a ontolex:LexicalEntry ;
     ontolex:canonicalForm [
         ontolex:writtenRep "dog"@en 
     ] ;

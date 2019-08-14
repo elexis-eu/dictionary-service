@@ -1,6 +1,6 @@
 use rusqlite::{Connection, NO_PARAMS};
 
-use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent};
+use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent,Format};
 #[cfg(test)]
 use crate::model::{Agent,Genre};
 use std::collections::HashMap;
@@ -51,7 +51,6 @@ impl RusqliteState {
                  lemma TEXT,
                  id TEXT,
                  part_of_speech TEXT,
-                 format TEXT,
                  dict TEXT,
                  UNIQUE(dict,id))", NO_PARAMS)?;
         db.execute("CREATE INDEX IF NOT EXISTS entries_idx ON entries (lemma)", NO_PARAMS)?;
@@ -97,13 +96,12 @@ impl RusqliteState {
             r
         } else {
 
-            let mut stmt = db.prepare("INSERT OR REPLACE INTO entries (release, lemma, id, part_of_speech, format, dict) VALUES (?,?,?,?,?,?)")?;
+            let mut stmt = db.prepare("INSERT OR REPLACE INTO entries (release, lemma, id, part_of_speech, dict) VALUES (?,?,?,?,?)")?;
             stmt.execute(&[
                 &serde_json::to_string(&release).unwrap(),
                 entry_content.lemma(),
                 entry_content.id(),
                 &serde_json::to_string(&entry_content.pos()).unwrap(),
-                &serde_json::to_string(&vec![entry_content.format()]).unwrap(),
                 dict_id])?;
 
             let mut stmt2 = db.prepare("SELECT last_insert_rowid()")?;
@@ -189,15 +187,15 @@ impl Backend for RusqliteState {
         let mut stmt = match offset {
             Some(_) => match limit {
                 Some(_) =>
-                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? LIMIT ? OFFSET ?")?,
+                    db.prepare("SELECT release, lemma, id, part_of_speech, row_id FROM entries WHERE dict=? LIMIT ? OFFSET ?")?,
                 None =>
-                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? LIMIT -1 OFFSET ?")?
+                    db.prepare("SELECT release, lemma, id, part_of_speech, row_id FROM entries WHERE dict=? LIMIT -1 OFFSET ?")?
             },
             None => match limit {
                 Some(_) =>
-                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=? LIMIT ?")?,
+                    db.prepare("SELECT release, lemma, id, part_of_speech, row_id FROM entries WHERE dict=? LIMIT ?")?,
                 None =>
-                    db.prepare("SELECT release, lemma, id, part_of_speech, format FROM entries WHERE dict=?")?
+                    db.prepare("SELECT release, lemma, id, part_of_speech, row_id FROM entries WHERE dict=?")?
             }
         };
         let mut result = match offset {
@@ -227,13 +225,13 @@ impl Backend for RusqliteState {
         while let Some(r) = result.next()? {
             let r_str : String = r.get(0)?;
             let pos_str : String = r.get(3)?;
-            let format_str : String = r.get(4)?;
+            let row_id : u32 = r.get(4)?;
             entries.push(Entry {
                 release: serde_json::from_str(&r_str)?,
                 lemma: r.get(1)?,
                 id: r.get(2)?,
                 part_of_speech: serde_json::from_str(&pos_str)?,
-                formats: serde_json::from_str(&format_str)?
+                formats: extract_formats(row_id, &db)
             })
         }
 
@@ -247,12 +245,13 @@ impl Backend for RusqliteState {
             Ok(entries)
         }
     }
+
     /// Search the dictionary by headword
     fn lookup(&self, dictionary : &str, headword : &str,
               offset : Option<usize>, limit : Option<usize>,
               part_of_speech : Option<PartOfSpeech>, inflected : bool) -> Result<Vec<Entry>,BackendError> {
         let db = Connection::open(&self.path)?;
-        let mut q = String::from("SELECT release, lemma, id, part_of_speech, format FROM entries");
+        let mut q = String::from("SELECT release, lemma, id, part_of_speech, row_id FROM entries");
         
         if inflected {
             q.push_str(" JOIN variants ON variants.entry_id == entries.row_id WHERE dict=?");
@@ -294,13 +293,13 @@ impl Backend for RusqliteState {
         while let Some(r) = result.next()? {
             let r_str : String = r.get(0)?;
             let pos_str : String = r.get(3)?;
-            let format_str : String = r.get(4)?;
+            let row_id : u32 = r.get(4)?;
             entries.push(Entry {
                 release: serde_json::from_str(&r_str)?,
                 lemma: r.get(1)?,
                 id: r.get(2)?,
                 part_of_speech: serde_json::from_str(&pos_str)?,
-                formats: serde_json::from_str(&format_str)?
+                formats: extract_formats(row_id, &db)
             })
         }
  
@@ -351,6 +350,22 @@ impl Backend for RusqliteState {
      }
 
 }
+
+fn extract_formats(row_id : u32, connection : &Connection) -> Vec<Format> {
+    let mut formats = Vec::new();
+    if connection.query_row("SELECT * FROM json_entries WHERE entry_id=?", &[&row_id], |_| Ok(())).is_ok() {
+        formats.push(Format::json);
+    }
+    if connection.query_row("SELECT * FROM tei_entries WHERE entry_id=?", &[&row_id], |_| Ok(())).is_ok() {
+        formats.push(Format::tei);
+    }
+    if connection.query_row("SELECT * FROM ontolex_entries WHERE entry_id=?", &[&row_id], |_| Ok(())).is_ok() {
+        formats.push(Format::ontolex);
+    }
+
+    formats
+}
+
 
 #[test]
 fn test_create_db() {

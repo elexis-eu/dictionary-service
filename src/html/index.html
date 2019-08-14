@@ -52,6 +52,9 @@ body {
 #footerButtons button {
     margin: 12px;
 }
+.view-button {
+    margin-right: 5px;
+}
     </style>
     </head>
     <body>
@@ -68,8 +71,11 @@ body {
                     <ul class="list-group">
                         <li class="list-group-item" v-for="dict in dictionaries" 
                             v-bind:class="{active: dict === activeDict}"
-                            v-on:click="selectDict(dict)">{{dict}}</li>
-                    </ul>
+                            v-on:click="selectDict(dict)">{{dict}}
+                            <button type="button" class="btn btn-primary float-right view-button" 
+                                v-on:click="aboutDict(dict)">About this dictionary</button>
+                        </li>
+                     </ul>
                 </div>
             </div>
             <div class="row" id="entry-list">
@@ -81,13 +87,13 @@ body {
                         <li class="list-group-item" v-for="entry in entries">
                             <span class="lemma">{{entry.lemma}}</span>
                             (<span class="partOfSpeech" v-for="pos in entry.partOfSpeech">{{pos}}</span>)
-                            <button type="button" class="btn btn-primary float-right" 
+                            <button type="button" class="btn btn-primary float-right view-button" 
                                 v-on:click="showTei(entry.id)"
                                 v-if="entry.formats.includes('tei')">View as TEI</button>
-                            <button type="button" class="btn btn-primary float-right" 
+                            <button type="button" class="btn btn-primary float-right view-button" 
                                 v-on:click="showOntolex(entry.id)"
                                 v-if="entry.formats.includes('ontolex')">View as OntoLex</button>
-                            <button type="button" class="btn btn-primary float-right" 
+                            <button type="button" class="btn btn-primary float-right view-button" 
                                 v-on:click="showEntry(entry.id)"
                                 v-if="entry.formats.includes('json')">View Entry</button>
                         </li>
@@ -177,6 +183,88 @@ body {
                     </div>
                 </div>
             </div>
+            <div class="modal" tabindex="-1" role="dialog" id="aboutDict">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">About this dictionary: {{about.id}}</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <table class="table table-striped">
+                                <tr>
+                                    <td><b>Release level</b></td>
+                                    <td>{{about.release}}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Source language</b></td>
+                                    <td>{{about.sourceLanguage}}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Target languages</b></td>
+                                    <td>
+                                        <div v-for="lang in about.targetLanguage">{{lang}}</div>
+                                        <i v-if="about.targetLanguage.length == 0">No target languages</i>
+                                    </td>
+                                <tr>
+                                <tr>
+                                    <td><b>Genres</b></td>
+                                    <td>
+                                        <div v-for="genre in about.genre">{{genre}}</div>
+                                        <i v-if="about.genre.length == 0">No genres</i>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>License</b></td>
+                                    <td>
+                                        <a v-bind:href="about.license">{{about.license}}</a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Creator</b></td> 
+                                    <td>
+                                        <table class="table table-striped" v-for="creator in about.creator">
+                                            <tr>
+                                                <td><b>Name</b></td>
+                                                <td>{{creator.name}}</td>
+                                            </tr>
+                                            <tr v-if="'email' in creator">
+                                                <td><b>Email</b></td>
+                                                <td><a v-bind:href="'mailto:' +creator.email">{{creator.email}}</a></td>
+                                            </tr>
+                                            <tr v-if="'url' in creator">
+                                                <td><b>Homepage</b></td>
+                                                <td><a v-bind:href="creator.url">{{creator.url}}</a></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Publisher</b></td> 
+                                    <td>
+                                        <table class="table table-striped" v-for="publisher in about.publisher">
+                                            <tr>
+                                                <td><b>Name</b></td>
+                                                <td>{{publisher.name}}</td>
+                                            </tr>
+                                            <tr v-if="'email' in publisher && publisher.email">
+                                                <td><b>Email</b></td>
+                                                <td><a v-bind:href="'mailto:' +publisher.email">{{publisher.email}}</a></td>
+                                            </tr>
+                                            <tr v-if="'url' in publisher && publisher.url">
+                                                <td><b>Homepage</b></td>
+                                                <td><a v-bind:href="publisher.url">{{publisher.url}}</a></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
          </div>
     <!-- development version, includes helpful console warnings -->
     <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
@@ -222,7 +310,8 @@ Vue.directive('highlightjs', {
                 "offset": 0,
                 "entry": {"canonicalForm": { "writtenRep": "placeholder" }, "partOfSpeech": "noun"},
                 "entry_tei": {"id": "", "content": ""},
-                "entry_ontolex": {"id": "", "content": ""}
+                "entry_ontolex": {"id": "", "content": ""},
+                "about": {"release":"","sourceLanguage":"","targetLanguage":[],"genre":[],"license":"","creator":[{"name":"","email":"","url":""}],"publisher":[{"name":"","email":"","url":""}]}
             },
             methods: {
                 selectDict: function(dict) {
@@ -290,7 +379,17 @@ Vue.directive('highlightjs', {
                     }, response => {
                         console.log(JSON.stringify(response));
                     });
+                },
+                aboutDict : function(id) {
+                    this.$http.get('about/' + id).then(response => {
+                        this.about = response.body;
+                        this.about.id = id;
+                        $('#aboutDict').modal('show');
+                    }, response => {
+                        console.log(JSON.stringify(response));
+                    });
                 }
+ 
             },
             created: function() {
                 this.queryDicts();
