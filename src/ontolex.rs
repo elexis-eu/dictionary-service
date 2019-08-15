@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 use crate::rdf::turtle::parse_turtle;
 use crate::rdf::model::{NamedNode,Value,Resource,Triple,Namespace,Literal};
+use crate::config::Config;
 
 fn make_id(s : &str) -> String {
     let e1 : Vec<&str> = s.split("#").collect();
@@ -21,15 +22,15 @@ fn make_id(s : &str) -> String {
 }
 
 pub fn parse<R : Read, F>(mut input : R, release : Release,
-    genre : Vec<Genre>, foo : F) -> Result<BackendImpl,BackendError>
+    genre : Vec<Genre>, cfg : &Config, foo : F) -> Result<BackendImpl,BackendError>
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
         let mut content = String::new();
         input.read_to_string(&mut content)?;
-        parse_str(&content, release, genre, foo)
+        parse_str(&content, release, genre, cfg, foo)
 }
 
 pub fn parse_str<F>(content : &str, release : Release,
-    genre : Vec<Genre>, foo : F) -> Result<BackendImpl,BackendError>
+    genre : Vec<Genre>, cfg : &Config, foo : F) -> Result<BackendImpl,BackendError>
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
         let triples = parse_turtle(content)?;
         let mut dictionary = HashMap::new();
@@ -59,7 +60,7 @@ pub fn parse_str<F>(content : &str, release : Release,
                     let t2 = Triple(subj.clone(), pred.clone(), obj.clone());
                     entry_triples.insert(0, &t2);
                     entries_by_uri.insert(r.uri(), add_entries(&r.uri(), 
-                            &mut entry_triples)?);
+                            &mut entry_triples, cfg)?);
                 }
             }
         }
@@ -195,10 +196,10 @@ fn make_agents(uris : &Vec<Resource>, agent_names : &HashMap<Resource, &str>,
 
 }
 
-fn add_entries(id : &str, 
-    entry_triples : &mut Vec<&Triple>) -> Result<EntryContent,BackendError> {
+fn add_entries(id : &str, entry_triples : &mut Vec<&Triple>,
+    cfg : &Config) -> Result<EntryContent,BackendError> {
     let lemma = extract_lemma(id, entry_triples)?;
-    let pos = extract_pos(id, entry_triples);
+    let pos = extract_pos(id, entry_triples, cfg);
     let vars = extract_vars(id, entry_triples);
     let data = format_triples(entry_triples);
     Ok(EntryContent::OntoLex(make_id(id), lemma, pos, vars, data))
@@ -227,38 +228,48 @@ fn extract_lemma(id : &str, triples : &Vec<&Triple>) -> Result<String,BackendErr
         })
 }
 
-fn extract_pos(id : &str, triples : &Vec<&Triple>) -> Vec<PartOfSpeech> {
+fn extract_pos(id : &str, triples : &Vec<&Triple>, cfg : &Config) -> Vec<PartOfSpeech> {
     triples.iter().filter(|t|
         t.0 == Resource::make_uri(id) &&
-        t.1 == NamedNode::make_uri("http://www.lexinfo.net/ontology/2.0/lexinfo#partOfSpeech"))
+        t.1 == NamedNode::make_uri(&
+            cfg.pos_property.clone().unwrap_or(
+            "http://www.lexinfo.net/ontology/2.0/lexinfo#partOfSpeech".to_owned())))
         .flat_map(|t| {
             if let Value::Resource(Resource::Named(ref obj)) = t.2 {
-                map_pos_value(obj)
+                map_pos_value(obj,cfg)
             } else {
                 None
             }
         }).collect()
 }
 
-fn map_pos_value(obj : &NamedNode) -> Option<PartOfSpeech> {
-    match obj.uri().as_ref() {
-"http://www.lexinfo.net/ontology/2.0/lexinfo#adjective" => Some(PartOfSpeech::ADJ),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#adposition" => Some(PartOfSpeech::ADP),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#adverb" => Some(PartOfSpeech::ADV),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#auxiliary" => Some(PartOfSpeech::AUX),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#coordinatingConjunction" => Some(PartOfSpeech::CCONJ),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#determiner" => Some(PartOfSpeech::DET),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#interjection" => Some(PartOfSpeech::INTJ),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#commonNoun" => Some(PartOfSpeech::NOUN),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#numeral" => Some(PartOfSpeech::NUM),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#particle" => Some(PartOfSpeech::PART),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#properNoun" => Some(PartOfSpeech::PROPN),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#punctuation" => Some(PartOfSpeech::PUNCT),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#subordinatingConjunction" => Some(PartOfSpeech::SCONJ),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#symbol" => Some(PartOfSpeech::SYM),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#verb" => Some(PartOfSpeech::VERB),
-"http://www.lexinfo.net/ontology/2.0/lexinfo#other" => Some(PartOfSpeech::X),
-    _ => None
+fn map_pos_value(obj : &NamedNode, cfg : &Config) -> Option<PartOfSpeech> {
+    if let Some(ref mapping) = cfg.pos_mapping {
+        if let Some(pos) = mapping.get(&obj.uri()) {
+            Some(pos.clone())
+        } else {
+            None
+        }
+    } else {
+        match obj.uri().as_ref() {
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#adjective" => Some(PartOfSpeech::ADJ),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#adposition" => Some(PartOfSpeech::ADP),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#adverb" => Some(PartOfSpeech::ADV),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#auxiliary" => Some(PartOfSpeech::AUX),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#coordinatingConjunction" => Some(PartOfSpeech::CCONJ),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#determiner" => Some(PartOfSpeech::DET),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#interjection" => Some(PartOfSpeech::INTJ),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#commonNoun" => Some(PartOfSpeech::NOUN),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#numeral" => Some(PartOfSpeech::NUM),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#particle" => Some(PartOfSpeech::PART),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#properNoun" => Some(PartOfSpeech::PROPN),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#punctuation" => Some(PartOfSpeech::PUNCT),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#subordinatingConjunction" => Some(PartOfSpeech::SCONJ),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#symbol" => Some(PartOfSpeech::SYM),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#verb" => Some(PartOfSpeech::VERB),
+    "http://www.lexinfo.net/ontology/2.0/lexinfo#other" => Some(PartOfSpeech::X),
+        _ => None
+        }
     }
 }
 
@@ -483,7 +494,7 @@ fn test_read_ontolex() {
         ontolex:reference <http://www.example.com/ontology>  
     ] .";
 
-    let dictionary = parse_str(ontolex, Release::PUBLIC, vec![Genre::gen], |r,d,e| {
+    let dictionary = parse_str(ontolex, Release::PUBLIC, vec![Genre::gen], &Config::blank(), |r,d,e| {
         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
     }).unwrap();
     assert_eq!(dictionary.dictionaries().unwrap().len(), 1);

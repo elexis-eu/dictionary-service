@@ -3,7 +3,7 @@ ELEXIS Dictionary Service
 
 
 This tool provides a simple way to host dictionaries that can be contributed 
-to the ELEXIS infrastructure. This interface is the refrence implementation of
+to the ELEXIS infrastructure. This interface is the reference implementation of
 the REST API defined here:
 
 https://elexis-eu.github.io/elexis-rest
@@ -42,6 +42,7 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
+    -c, --config <config>                                    Configuration to help with mapping
         --db-path <db_path>                                  The path to use for the database (Default: eds.db)
     -f, --format <json|ttl|tei>                              The format of the input
         --genre <gen|lrn|ety|spe|his|ort|trm>                The genre(s) of the dataset (comma separated)
@@ -79,6 +80,7 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
+    -c, --config <config>                                    Configuration to help with mapping
     -d, --data <data>                                        Also load a single data file
         --db-path <db_path>                                  The path to use for the database (Default: eds.db)
     -f, --format <json|ttl|tei>                              The format of the input
@@ -124,7 +126,7 @@ ARGS:
 For example
 
 ```sh
-elexis-dictionary-servcie delete dict_id
+elexis-dictionary-service delete dict_id
 ```
 
 Formats
@@ -268,3 +270,31 @@ All entries must have `ontolex:canonicalForm` with an `ontolex:writtenRep`.
 
 All entries must be given by URIs and referred to by a `lime:entry` triple from
 a lexicon
+
+Configuration
+-------------
+
+Configuration maybe performed using a configuration file. This is particularly
+useful for providing mappings. An example configuration is as below
+
+```json
+{
+    "posProperty": "http://www.lexinfo.net/ontology/2.0/lexinfo#partOfSpeech",
+    "posMapping": {
+        "substantive": "NOUN",
+        "http://www.lexinfo.net/ontology/2.0/lexinfo#pronoun": "PRON"
+    },
+    "defaultId": "dict_id",
+    "defaultRelease": "PUBLIC"
+}
+```
+
+The configuration has the following values
+
+* `posProperty`: The URI of the RDF property used to indicate part-of-speech
+* `posMapping`: A mapping of values, either RDF URI or the content of TEI tags
+    that is mapped to a given UD value (ADJ, ADP, ADV, AUX, CCONJ, DET, INTJ, 
+    NOUN, NUM, PART, PRON, PROPN, PUNCT, SCONJ, SYM, VERB, X)
+* `defaultId`: The default ID for a dictionary (instead of a `--id` flag)
+* `defaultRelease`: The default release level of the dictionary (PUBLIC,
+    NONCOMMERCIAL, RESEARCH, PRIVATE)

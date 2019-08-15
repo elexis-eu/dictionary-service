@@ -1,6 +1,7 @@
 use std::io::Read;
 use crate::model::{Agent, Release, Genre, Format, Entry, Dictionary, PartOfSpeech, EntryContent};
 use crate::BackendImpl;
+use crate::config::Config;
 
 use xml::reader::{EventReader, XmlEvent};
 use xml::name::OwnedName;
@@ -12,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 pub fn parse<R : Read,F>(input : R, id : &str, release : Release,
-                   genre : Vec<Genre>, foo : F) -> BackendImpl 
+                   genre : Vec<Genre>, config : &Config, foo : F) -> BackendImpl 
     where F : FnOnce(Release, HashMap<String,Dictionary>, HashMap<String, Vec<EntryContent>>) -> BackendImpl {
     let parser = EventReader::new(input);
 
@@ -93,7 +94,7 @@ pub fn parse<R : Read,F>(input : R, id : &str, release : Release,
                             } else {
                                 eprintln!("Bad normalization: {}", norm.value);
                             }
-                        }
+                        } 
                         pos_string = String::new();
                     }
 
@@ -163,7 +164,7 @@ pub fn parse<R : Read,F>(input : R, id : &str, release : Release,
                     && state == State::Pos {
                     extend_content_endtag(&mut content, name);
                     if part_of_speech.is_empty() { // we did not get a pos from the normalization
-                        part_of_speech.push(convert_pos(&pos_string));
+                        part_of_speech.push(convert_pos(&pos_string, config));
                     }
                     state = State::Entry;
                 } else if state == State::Entry || state == State::Lemma || state == State::Pos {
@@ -318,24 +319,32 @@ fn detab_content(content : &str) -> String {
     }
 }
 
-fn convert_pos(pos : &str) -> PartOfSpeech {
-    match pos {
-        "adjective" => PartOfSpeech::ADJ,
-        "adposition" => PartOfSpeech::ADP,
-        "adverb" => PartOfSpeech::ADV,
-        "auxiliary" => PartOfSpeech::AUX,
-        "coordinatingConjunction" => PartOfSpeech::CCONJ,
-        "determiner" => PartOfSpeech::DET,
-        "interjection" => PartOfSpeech::INTJ,
-        "commonNoun" => PartOfSpeech::NOUN,
-        "numeral" => PartOfSpeech::NUM,
-        "particle" => PartOfSpeech::PART,
-        "properNoun" => PartOfSpeech::PROPN,
-        "punctuation" => PartOfSpeech::PUNCT,
-        "subordinatingConjunction" => PartOfSpeech::SCONJ,
-        "symbol" => PartOfSpeech::SYM,
-        "verb" => PartOfSpeech::VERB,
-        _ => PartOfSpeech::X
+fn convert_pos(pos : &str, config : &Config) -> PartOfSpeech {
+    if let Some(ref mapping) = config.pos_mapping {
+        if let Some(pos) = mapping.get(pos) {
+            pos.clone()
+        } else {
+            PartOfSpeech::X
+        }
+    } else {
+        match pos {
+            "adjective" => PartOfSpeech::ADJ,
+            "adposition" => PartOfSpeech::ADP,
+            "adverb" => PartOfSpeech::ADV,
+            "auxiliary" => PartOfSpeech::AUX,
+            "coordinatingConjunction" => PartOfSpeech::CCONJ,
+            "determiner" => PartOfSpeech::DET,
+            "interjection" => PartOfSpeech::INTJ,
+            "commonNoun" => PartOfSpeech::NOUN,
+            "numeral" => PartOfSpeech::NUM,
+            "particle" => PartOfSpeech::PART,
+            "properNoun" => PartOfSpeech::PROPN,
+            "punctuation" => PartOfSpeech::PUNCT,
+            "subordinatingConjunction" => PartOfSpeech::SCONJ,
+            "symbol" => PartOfSpeech::SYM,
+            "verb" => PartOfSpeech::VERB,
+            _ => PartOfSpeech::X
+        }
     }
 }
 
@@ -454,7 +463,7 @@ mod tests {
     </text>
 </TEI>";
 
-        parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new(), |r,d,e| {
+        parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new(), &Config::blank(), |r,d,e| {
             BackendImpl::Mem(EDSState::new(r,d,e)) 
         });
     }
@@ -462,7 +471,7 @@ mod tests {
     #[test]
     fn test_example() {
         let x : &[u8] = include_bytes!("../examples/example-tei.xml");
-        let _state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new(), |r,d,e| {
+        let _state = parse(x, "exmaple-tei", Release::PUBLIC, Vec::new(), &Config::blank(), |r,d,e| {
             BackendImpl::Mem(EDSState::new(r,d,e)) 
         });
         //assert_eq!(state.dictionaries.lock().unwrap().len(), 1);
