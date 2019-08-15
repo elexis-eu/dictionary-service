@@ -164,7 +164,7 @@ pub fn parse<R : Read,F>(input : R, id : &str, release : Release,
                     && state == State::Pos {
                     extend_content_endtag(&mut content, name);
                     if part_of_speech.is_empty() { // we did not get a pos from the normalization
-                        part_of_speech.push(convert_pos(&pos_string, config));
+                        part_of_speech.push(convert_pos(&pos_string.trim(), config));
                     }
                     state = State::Entry;
                 } else if state == State::Entry || state == State::Lemma || state == State::Pos {
@@ -364,7 +364,7 @@ enum State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::EDSState;
+    use crate::model::{EDSState, Backend};
 
     #[test]
     fn test_load_tei() {
@@ -479,5 +479,61 @@ mod tests {
         //assert!(state.entries_lemmas.lock().unwrap().get("exmaple-tei").unwrap().contains_key("girl"));
 
     }
+
+    #[test]
+    fn test_pos_mapping() {
+        let doc = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml-model href=\"http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng\" type=\"application/xml\"
+	schematypens=\"http://purl.oclc.org/dsdl/schematron\"?>
+<?xml-model href=\"../../Schemas/TEILex0/out/TEILex0-ODD.rng\" type=\"application/xml\" schematypens=\"http://relaxng.org/ns/structure/1.0\"?>
+<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">
+   <teiHeader>
+      <fileDesc>
+         <titleStmt>
+            <title>Sample Etymological Phenomena for TEI Lex0 Etymology Paper</title>
+            <author>Jack Bowers</author>
+         </titleStmt>
+         <publicationStmt>
+            <publisher>Publication Information</publisher>
+            <availability>
+                <licence target=\"http://www.example.com/licence\"/>
+            </availability>
+         </publicationStmt>
+         <sourceDesc>
+            <p>Information about the source</p>
+         </sourceDesc>
+      </fileDesc>
+      <encodingDesc>
+         <ab>Examples are encoded in TEI-Lex0 Etymology format</ab>
+      </encodingDesc>
+   </teiHeader>
+   <text>
+      <body>
+         <!-- Cognate Set -->
+         <entry xml:lang=\"en\" xml:id=\"girl-en\">
+            <form type=\"lemma\">
+               <orth>girl</orth>
+            </form>
+            <gramGrp>
+                <gram type=\"pos\">
+                    substanstive
+                </gram>
+            </gramGrp>
+         </entry> 
+      </body>
+    </text>
+</TEI>";
+        let mut config = Config::blank();
+        let mut m = HashMap::new();
+        m.insert("substanstive".to_owned(), PartOfSpeech::NOUN);
+        config.pos_mapping = Some(m);
+        let dict = parse(doc.as_bytes(), "test-dict", Release::PUBLIC, Vec::new(), &config, |r,d,e| {
+            BackendImpl::Mem(EDSState::new(r,d,e)) 
+        });
+        let result = dict.lookup("test-dict", "girl", None, None, Some(PartOfSpeech::NOUN), false);
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+ 
 
 }
