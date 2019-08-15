@@ -21,7 +21,11 @@ This will create a single binary at `target/release/elexis-dictionary-service`.
 
 ### By Docker
 
-TODO
+The dictionary service is available from [Docker Hub](https://cloud.docker.com/repository/registry-1.docker.io/jmccrae/elexis-dictionary-service).
+
+You can run the command with
+
+    docker run -it --rm -p 8000:8000 jmccrae/elexis-dictionary-service
 
 Usage
 -----
