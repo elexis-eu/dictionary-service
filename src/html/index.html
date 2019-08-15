@@ -45,7 +45,7 @@ body {
     border-radius: 3px;
 }
 
-.list-group {
+.indented {
     margin-left: 25px;
 }
 
@@ -69,13 +69,14 @@ body {
             <div class="row">
                 <div class="col">
                     <ul class="list-group">
-                        <li class="list-group-item" v-for="dict in dictionaries" 
+                        <li class="list-group-item indented" v-for="dict in dictionaries" 
                             v-bind:class="{active: dict === activeDict}"
                             v-on:click="selectDict(dict)">{{dict}}
                             <button type="button" class="btn btn-primary float-right view-button" 
                                 v-on:click="aboutDict(dict)">About this dictionary</button>
                         </li>
                      </ul>
+                     <i v-if="dictionaries.length == 0" class="indented">No Dictionaries</i>
                 </div>
             </div>
             <div class="row" id="entry-list">
@@ -84,7 +85,7 @@ body {
             <div class="row">
                 <div class="col">
                     <ul class="list-group">
-                        <li class="list-group-item" v-for="entry in entries">
+                        <li class="list-group-item indented" v-for="entry in entries">
                             <span class="lemma">{{entry.lemma}}</span>
                             (<span class="partOfSpeech" v-for="pos in entry.partOfSpeech">{{pos}}</span>)
                             <button type="button" class="btn btn-primary float-right view-button" 
@@ -98,6 +99,7 @@ body {
                                 v-if="entry.formats.includes('json')">View Entry</button>
                         </li>
                     </ul>
+                    <i v-if="entries.length == 0" class="indented">No entries</i>
                 </div>
             </div>
             <div class="row" id="footerButtons">
@@ -260,6 +262,285 @@ body {
                                         </table>
                                     </td>
                                 </tr>
+                                <tr v-if="about.abstract">
+                                    <td><b>Abstract</b></td>
+                                    <td>{{about.abstract}}</td>
+                                </tr>
+                                <tr v-if="about.accrualMethod">
+                                    <td><b>Accrual Method</b></td>
+                                    <td>{{about.accrualMethod}}</td>
+                                </tr>
+
+                                <tr v-if="about.accrualPeriodicity">
+                                    <td><b>Accrual Periodicity</b></td>
+                                    <td>{{about.accrualPeriodicity}}</td>
+                                </tr>
+
+                                <tr v-if="about.accrualPolicy">
+                                    <td><b>Accrual Policy</b></td>
+                                    <td>{{about.accrualPolicy}}</td>
+                                </tr>
+
+                                <tr v-if="about.alternative">
+                                    <td><b>Alternative</b></td>
+                                    <td>{{about.alternative}}</td>
+                                </tr>
+
+                                <tr v-if="about.audience">
+                                    <td><b>Audience</b></td>
+                                    <td>{{about.audience}}</td>
+                                </tr>
+
+                                <tr v-if="about.available">
+                                    <td><b>Available</b></td>
+                                    <td>{{about.available}}</td>
+                                </tr>
+
+                                <tr v-if="about.bibliographicCitation">
+                                    <td><b>Bibliographic Citation</b></td>
+                                    <td>{{about.bibliographicCitation}}</td>
+                                </tr>
+
+                                <tr v-if="about.conformsTo">
+                                    <td><b>Conforms To</b></td>
+                                    <td>{{about.conformsTo}}</td>
+                                </tr>
+
+                                <tr v-if="about.contributor">
+                                    <td><b>Contributor</b></td>
+                                    <td>
+                                        <table class="table table-striped" v-for="contributor in about.contributor">
+                                            <tr>
+                                                <td><b>Name</b></td>
+                                                <td>{{contributor.name}}</td>
+                                            </tr>
+                                            <tr v-if="'email' in contributor && contributor.email">
+                                                <td><b>Email</b></td>
+                                                <td><a v-bind:href="'mailto:' +contributor.email">{{contributor.email}}</a></td>
+                                            </tr>
+                                            <tr v-if="'url' in contributor && contributor.url">
+                                                <td><b>Homepage</b></td>
+                                                <td><a v-bind:href="contributor.url">{{contributor.url}}</a></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="about.coverage">
+                                    <td><b>Coverage</b></td>
+                                    <td>{{about.coverage}}</td>
+                                </tr>
+
+                                <tr v-if="about.created">
+                                    <td><b>Created</b></td>
+                                    <td>{{about.created}}</td>
+                                </tr>
+
+                                <tr v-if="about.date">
+                                    <td><b>Date</b></td>
+                                    <td>{{about.date}}</td>
+                                </tr>
+
+                                <tr v-if="about.dateAccepted">
+                                    <td><b>Date Accepted</b></td>
+                                    <td>{{about.dateAccepted}}</td>
+                                </tr>
+
+                                <tr v-if="about.dateCopyrighted">
+                                    <td><b>Date Copyrighted</b></td>
+                                    <td>{{about.dateCopyrighted}}</td>
+                                </tr>
+
+                                <tr v-if="about.dateSubmitted">
+                                    <td><b>Date Submitted</b></td>
+                                    <td>{{about.dateSubmitted}}</td>
+                                </tr>
+
+                                <tr v-if="about.description">
+                                    <td><b>Description</b></td>
+                                    <td>{{about.description}}</td>
+                                </tr>
+
+                                <tr v-if="about.educationLevel">
+                                    <td><b>Education Level</b></td>
+                                    <td>{{about.educationLevel}}</td>
+                                </tr>
+
+                                <tr v-if="about.extent">
+                                    <td><b>Extent</b></td>
+                                    <td>{{about.extent}}</td>
+                                </tr>
+
+                                <tr v-if="about.hasFormat">
+                                    <td><b>Has Format</b></td>
+                                    <td>{{about.hasFormat}}</td>
+                                </tr>
+
+                                <tr v-if="about.hasPart">
+                                    <td><b>Has Part</b></td>
+                                    <td>{{about.hasPart}}</td>
+                                </tr>
+
+                                <tr v-if="about.hasVersion">
+                                    <td><b>Has Version</b></td>
+                                    <td>{{about.hasVersion}}</td>
+                                </tr>
+
+                                <tr v-if="about.identifier">
+                                    <td><b>Identifier</b></td>
+                                    <td>{{about.identifier}}</td>
+                                </tr>
+
+                                <tr v-if="about.instructionalMethod">
+                                    <td><b>Instructional Method</b></td>
+                                    <td>{{about.instructionalMethod}}</td>
+                                </tr>
+
+                                <tr v-if="about.isFormatOf">
+                                    <td><b>Is Format Of</b></td>
+                                    <td>{{about.isFormatOf}}</td>
+                                </tr>
+
+                                <tr v-if="about.isPartOf">
+                                    <td><b>Is Part Of</b></td>
+                                    <td>{{about.isPartOf}}</td>
+                                </tr>
+
+                                <tr v-if="about.isReferencedBy">
+                                    <td><b>Is Referenced By</b></td>
+                                    <td>{{about.isReferencedBy}}</td>
+                                </tr>
+
+                                <tr v-if="about.isReplacedBy">
+                                    <td><b>Is Replaced By</b></td>
+                                    <td>{{about.isReplacedBy}}</td>
+                                </tr>
+
+                                <tr v-if="about.isRequiredBy">
+                                    <td><b>Is Required By</b></td>
+                                    <td>{{about.isRequiredBy}}</td>
+                                </tr>
+
+                                <tr v-if="about.issued">
+                                    <td><b>Issued</b></td>
+                                    <td>{{about.issued}}</td>
+                                </tr>
+
+                                <tr v-if="about.isVersionOf">
+                                    <td><b>Is Version Of</b></td>
+                                    <td>{{about.isVersionOf}}</td>
+                                </tr>
+
+                                <tr v-if="about.mediator">
+                                    <td><b>Mediator</b></td>
+                                    <td>
+                                        <table class="table table-striped" v-for="mediator in about.mediator">
+                                            <tr>
+                                                <td><b>Name</b></td>
+                                                <td>{{mediator.name}}</td>
+                                            </tr>
+                                            <tr v-if="'email' in mediator && mediator.email">
+                                                <td><b>Email</b></td>
+                                                <td><a v-bind:href="'mailto:' +mediator.email">{{mediator.email}}</a></td>
+                                            </tr>
+                                            <tr v-if="'url' in mediator && mediator.url">
+                                                <td><b>Homepage</b></td>
+                                                <td><a v-bind:href="mediator.url">{{mediator.url}}</a></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="about.modified">
+                                    <td><b>Modified</b></td>
+                                    <td>{{about.modified}}</td>
+                                </tr>
+
+                                <tr v-if="about.provenance">
+                                    <td><b>Provenance</b></td>
+                                    <td>{{about.provenance}}</td>
+                                </tr>
+
+                                <tr v-if="about.references">
+                                    <td><b>References</b></td>
+                                    <td>{{about.references}}</td>
+                                </tr>
+
+                                <tr v-if="about.relation">
+                                    <td><b>Relation</b></td>
+                                    <td>{{about.relation}}</td>
+                                </tr>
+
+                                <tr v-if="about.replaces">
+                                    <td><b>Replaces</b></td>
+                                    <td>{{about.replaces}}</td>
+                                </tr>
+
+                                <tr v-if="about.requires">
+                                    <td><b>Requires</b></td>
+                                    <td>{{about.requires}}</td>
+                                </tr>
+
+                                <tr v-if="about.rights">
+                                    <td><b>Rights</b></td>
+                                    <td>{{about.rights}}</td>
+                                </tr>
+
+                                <tr v-if="about.rightsHolder">
+                                    <td><b>Rights Holder</b></td>
+                                    <td>
+                                        <table class="table table-striped" v-for="rightsHolder in about.rightsHolder">
+                                            <tr>
+                                                <td><b>Name</b></td>
+                                                <td>{{rightsHolder.name}}</td>
+                                            </tr>
+                                            <tr v-if="'email' in rightsHolder && rightsHolder.email">
+                                                <td><b>Email</b></td>
+                                                <td><a v-bind:href="'mailto:' +rightsHolder.email">{{rightsHolder.email}}</a></td>
+                                            </tr>
+                                            <tr v-if="'url' in rightsHolder && rightsHolder.url">
+                                                <td><b>Homepage</b></td>
+                                                <td><a v-bind:href="rightsHolder.url">{{rightsHolder.url}}</a></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="about.source">
+                                    <td><b>Source</b></td>
+                                    <td>{{about.source}}</td>
+                                </tr>
+
+                                <tr v-if="about.spatial">
+                                    <td><b>Spatial</b></td>
+                                    <td>{{about.spatial}}</td>
+                                </tr>
+
+                                <tr v-if="about.subject">
+                                    <td><b>Subject</b></td>
+                                    <td>{{about.subject}}</td>
+                                </tr>
+
+                                <tr v-if="about.tableOfContents">
+                                    <td><b>Table Of Contents</b></td>
+                                    <td>{{about.tableOfContents}}</td>
+                                </tr>
+
+                                <tr v-if="about.temporal">
+                                    <td><b>Temporal</b></td>
+                                    <td>{{about.temporal}}</td>
+                                </tr>
+
+                                <tr v-if="about.type">
+                                    <td><b>Type</b></td>
+                                    <td>{{about.type}}</td>
+                                </tr>
+
+                                <tr v-if="about.valid">
+                                    <td><b>Valid</b></td>
+                                    <td>{{about.valid}}</td>
+                                </tr>
+
                             </table>
                         </div>
                     </div>

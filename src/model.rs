@@ -2,6 +2,9 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::str::FromStr;
 
+type Date = String;
+type DateTime = String;
+
 /// The backend access to a dictionary
 pub trait Backend {
     /// List the identifiers for all dictionaries
@@ -223,7 +226,195 @@ pub struct Dictionary {
     pub genre : Vec<Genre>,
     pub license : String,
     pub creator : Vec<Agent>,
-    pub publisher : Vec<Agent>
+    pub publisher : Vec<Agent>,
+    /// A summary of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "abstract")]
+    pub _abstract : Option<String>,
+    /// The method by which items are added to a collection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accrual_method : Option<String>,
+
+    /// The frequency with which items are added to a collection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accrual_periodicity   : Option<String>,
+
+    /// The policy governing the addition of items to a collection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accrual_policy : Option<String>,
+
+    /// An alternative name for the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alternative  : Option<String>,
+
+    /// A class of entity for whom the resource is intended or useful.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience     : Option<String>,
+
+    /// Date that the resource became or will become available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available    : Option<Date>,
+
+    /// A bibliographic reference for the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bibliographic_citation : Option<String>,
+
+    /// An established standard to which the described resource conforms.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conforms_to   : Option<String>,
+
+    /// An entity responsible for making contributions to the resource.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub contributor  : Vec<Agent>,
+
+    /// The spatial or temporal topic of the resource, the spatial applicability of the resource, or the jurisdiction under which the resource is relevant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage     : Option<String>,
+
+    /// Date of creation of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created : Option<Date>,
+
+    /// A point or period of time associated with an event in the lifecycle of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date : Option<DateTime>,
+
+    /// Date of acceptance of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_accepted : Option<Date>,
+
+    /// Date of copyright.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_copyrighted : Option<Date>,
+
+    /// Date of submission of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_submitted : Option<Date>,
+
+    /// An account of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description  : Option<String>,
+
+    /// A class of entity, defined in terms of progression through an educational or training context, for which the described resource is intended.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub education_level : Option<String>,
+
+    /// The size or duration of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extent : Option<String>,
+
+    /// A related resource that is substantially the same as the pre-existing described resource, but in another format.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_format    : Option<String>,
+
+    /// A related resource that is included either physically or logically in the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_part : Option<String>,
+
+    /// A related resource that is a version, edition, or adaptation of the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_version   : Option<String>,
+
+    /// An unambiguous reference to the resource within a given context.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identifier   : Option<String>,
+
+    /// A process, used to engender knowledge, attitudes and skills, that the described resource is designed to support.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instructional_method  : Option<String>,
+
+    /// A related resource that is substantially the same as the described resource, but in another format.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_format_of   : Option<String>,
+
+    /// A related resource in which the described resource is physically or logically included.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_part_of     : Option<String>,
+
+    /// A related resource that references, cites, or otherwise points to the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_referenced_by : Option<String>,
+
+    /// A related resource that supplants, displaces, or supersedes the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_replaced_by : Option<String>,
+
+    /// A related resource that requires the described resource to support its function, delivery, or coherence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_required_by : Option<String>,
+
+    /// Date of formal issuance (e.g., publication) of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued : Option<Date>,
+
+    /// A related resource of which the described resource is a version, edition, or adaptation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_version_of  : Option<String>,
+
+    /// An entity that mediates access to the resource and for whom the resource is intended or useful.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub mediator     : Vec<Agent>,
+
+    /// Date on which the resource was changed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified     : Option<Date>,
+
+    /// A statement of any changes in ownership and custody of the resource since its creation that are significant for its authenticity, integrity, and interpretation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance   : Option<String>,
+
+    /// A related resource that is referenced, cited, or otherwise pointed to by the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub references   : Option<String>,
+
+    /// A related resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relation     : Option<String>,
+
+    /// A related resource that is supplanted, displaced, or superseded by the described resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replaces     : Option<String>,
+
+    /// A related resource that is required by the described resource to support its function, delivery, or coherence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires     : Option<String>,
+
+    /// Information about rights held in and over the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rights : Option<String>,
+
+    /// A person or organization owning or managing rights over the resource.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rights_holder : Vec<Agent>,
+
+    /// A related resource from which the described resource is derived.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source : Option<String>,
+
+    /// Spatial characteristics of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spatial : Option<String>,
+
+    /// The topic of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject : Option<String>,
+
+    /// A list of subunits of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub table_of_contents : Option<String>,
+
+    /// Temporal characteristics of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temporal     : Option<String>,
+
+    /// The nature or genre of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "type")]
+    pub _type : Option<String>,
+
+    /// Date of validity of a resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid : Option<Date>
 }
 
 impl Dictionary {
@@ -235,8 +426,255 @@ impl Dictionary {
                publisher : Vec<Agent>) -> Self {
         Dictionary {
             release, source_language, target_language, genre,
-            license, creator, publisher
+            license, creator, publisher, 
+            _abstract : None,
+            accrual_method : None,
+            accrual_periodicity   : None,
+            accrual_policy : None,
+            alternative  : None,
+            audience     : None,
+            available    : None,
+            bibliographic_citation : None,
+            conforms_to   : None,
+            contributor  : Vec::new(),
+            coverage     : None,
+            created : None,
+            date : None,
+            date_accepted : None,
+            date_copyrighted : None,
+            date_submitted : None,
+            description  : None,
+            education_level : None,
+            extent : None,
+            has_format    : None,
+            has_part : None,
+            has_version   : None,
+            identifier   : None,
+            instructional_method  : None,
+            is_format_of   : None,
+            is_part_of     : None,
+            is_referenced_by : None,
+            is_replaced_by : None,
+            is_required_by : None,
+            issued : None,
+            is_version_of  : None,
+            mediator     : Vec::new(),
+            modified     : None,
+            provenance   : None,
+            references   : None,
+            relation     : None,
+            replaces     : None,
+            requires     : None,
+            rights : None,
+            rights_holder : Vec::new(),
+            source : None,
+            spatial : None,
+            subject : None,
+            table_of_contents : None,
+            temporal     : None,
+            _type : None,
+            valid : None,
         }
+    }
+
+    pub fn set_dc_prop(&mut self, prop : &str, value : &str) {
+        match prop {
+            "abstract" => self._abstract = Some(value.to_owned()),
+            "accrualMethod" => self.accrual_method = Some(value.to_owned()),
+            "accrualPeriodicity" => self.  accrual_periodicity = Some(value.to_owned()),
+            "accrualPolicy" => self.accrual_policy = Some(value.to_owned()),
+            "alternative" => self. alternative = Some(value.to_owned()),
+            "audience" => self.    audience = Some(value.to_owned()),
+            "available" => self.   available = Some(value.to_owned()),
+            "bibliographicCitation" => self.bibliographic_citation = Some(value.to_owned()),
+            "conformsTo" => self.  conforms_to = Some(value.to_owned()),
+            "contributor" => self. contributor = serde_json::from_str(value).unwrap_or_else(|_| Vec::new()),
+            "coverage" => self.    coverage = Some(value.to_owned()),
+            "created" => self.created = Some(value.to_owned()),
+            "date" => self.date = Some(value.to_owned()),
+            "dateAccepted" => self.date_accepted = Some(value.to_owned()),
+            "dateCopyrighted" => self.date_copyrighted = Some(value.to_owned()),
+            "dateSubmitted" => self.date_submitted = Some(value.to_owned()),
+            "description" => self. description = Some(value.to_owned()),
+            "educationLevel" => self.education_level = Some(value.to_owned()),
+            "extent" => self.extent = Some(value.to_owned()),
+            "hasFormat" => self.   has_format = Some(value.to_owned()),
+            "hasPart" => self.has_part = Some(value.to_owned()),
+            "hasVersion" => self.  has_version = Some(value.to_owned()),
+            "identifier" => self.  identifier = Some(value.to_owned()),
+            "instructionalMethod" => self. instructional_method = Some(value.to_owned()),
+            "isFormatOf" => self.  is_format_of = Some(value.to_owned()),
+            "isPartOf" => self.    is_part_of = Some(value.to_owned()),
+            "isReferencedBy" => self.is_referenced_by = Some(value.to_owned()),
+            "isReplacedBy" => self.is_replaced_by = Some(value.to_owned()),
+            "isRequiredBy" => self.is_required_by = Some(value.to_owned()),
+            "issued" => self.issued = Some(value.to_owned()),
+            "isVersionOf" => self. is_version_of = Some(value.to_owned()),
+            "mediator" => self.    mediator = serde_json::from_str(value).unwrap_or_else(|_| Vec::new()),
+            "modified" => self.    modified = Some(value.to_owned()),
+            "provenance" => self.  provenance = Some(value.to_owned()),
+            "references" => self.  references = Some(value.to_owned()),
+            "relation" => self.    relation = Some(value.to_owned()),
+            "replaces" => self.    replaces = Some(value.to_owned()),
+            "requires" => self.    requires = Some(value.to_owned()),
+            "rights" => self.rights = Some(value.to_owned()),
+            "rightsHolder" => self.rights_holder = serde_json::from_str(value).unwrap_or_else(|_| Vec::new()),
+            "source" => self.source = Some(value.to_owned()),
+            "spatial" => self.spatial = Some(value.to_owned()),
+            "subject" => self.subject = Some(value.to_owned()),
+            "tableOfContents" => self.table_of_contents = Some(value.to_owned()),
+            "temporal" => self.    temporal = Some(value.to_owned()),
+            "type" => self._type = Some(value.to_owned()),
+            "valid" => self.valid = Some(value.to_owned()),
+            _ => eprintln!("Unrecognised DC property ({}) ignored", prop)
+        }
+    }
+
+    pub fn get_dc_props(&self) -> Vec<(&'static str, String)> {
+        let mut props = Vec::new();
+        if let Some(ref value) = self._abstract {
+            props.push(("abstract",value.to_owned()));
+        }
+        if let Some(ref value) = self.accrual_method {
+            props.push(("accrualMethod",value.to_owned()));
+        }
+        if let Some(ref value) = self.  accrual_periodicity {
+            props.push(("accrualPeriodicity",value.to_owned()));
+        }
+        if let Some(ref value) = self.accrual_policy {
+            props.push(("accrualPolicy",value.to_owned()));
+        }
+        if let Some(ref value) = self. alternative {
+            props.push(("alternative",value.to_owned()));
+        }
+        if let Some(ref value) = self.    audience {
+            props.push(("audience",value.to_owned()));
+        }
+        if let Some(ref value) = self.   available {
+            props.push(("available",value.to_owned()));
+        }
+        if let Some(ref value) = self.bibliographic_citation {
+            props.push(("bibliographicCitation",value.to_owned()));
+        }
+        if let Some(ref value) = self.  conforms_to {
+            props.push(("conformsTo",value.to_owned()));
+        }
+        for value in self.contributor.iter() {
+            props.push(("contributor",serde_json::to_string(value).unwrap_or("".to_owned())));
+        }
+        if let Some(ref value) = self.    coverage {
+            props.push(("coverage",value.to_owned()));
+        }
+        if let Some(ref value) = self.created {
+            props.push(("created",value.to_owned()));
+        }
+        if let Some(ref value) = self.date {
+            props.push(("date",value.to_owned()));
+        }
+        if let Some(ref value) = self.date_accepted {
+            props.push(("dateAccepted",value.to_owned()));
+        }
+        if let Some(ref value) = self.date_copyrighted {
+            props.push(("dateCopyrighted",value.to_owned()));
+        }
+        if let Some(ref value) = self.date_submitted {
+            props.push(("dateSubmitted",value.to_owned()));
+        }
+        if let Some(ref value) = self. description {
+            props.push(("description",value.to_owned()));
+        }
+        if let Some(ref value) = self.education_level {
+            props.push(("educationLevel",value.to_owned()));
+        }
+        if let Some(ref value) = self.extent {
+            props.push(("extent",value.to_owned()));
+        }
+        if let Some(ref value) = self.   has_format {
+            props.push(("hasFormat",value.to_owned()));
+        }
+        if let Some(ref value) = self.has_part {
+            props.push(("hasPart",value.to_owned()));
+        }
+        if let Some(ref value) = self.  has_version {
+            props.push(("hasVersion",value.to_owned()));
+        }
+        if let Some(ref value) = self.  identifier {
+            props.push(("identifier",value.to_owned()));
+        }
+        if let Some(ref value) = self. instructional_method {
+            props.push(("instructionalMethod",value.to_owned()));
+        }
+        if let Some(ref value) = self.  is_format_of {
+            props.push(("isFormatOf",value.to_owned()));
+        }
+        if let Some(ref value) = self.    is_part_of {
+            props.push(("isPartOf",value.to_owned()));
+        }
+        if let Some(ref value) = self.is_referenced_by {
+            props.push(("isReferencedBy",value.to_owned()));
+        }
+        if let Some(ref value) = self.is_replaced_by {
+            props.push(("isReplacesBy",value.to_owned()));
+        }
+        if let Some(ref value) = self.is_required_by {
+            props.push(("isRequiredBy",value.to_owned()));
+        }
+        if let Some(ref value) = self.issued {
+            props.push(("issued",value.to_owned()));
+        }
+        if let Some(ref value) = self. is_version_of {
+            props.push(("isVersionOf",value.to_owned()));
+        }
+        for value in self.mediator.iter() {
+            props.push(("mediator",serde_json::to_string(value).unwrap_or("".to_owned())));
+        }
+        if let Some(ref value) = self.    modified {
+            props.push(("modified",value.to_owned()));
+        }
+        if let Some(ref value) = self.  provenance {
+            props.push(("provenance",value.to_owned()));
+        }
+        if let Some(ref value) = self.  references {
+            props.push(("references",value.to_owned()));
+        }
+        if let Some(ref value) = self.    relation {
+            props.push(("relation",value.to_owned()));
+        }
+        if let Some(ref value) = self.    replaces {
+            props.push(("replaces",value.to_owned()));
+        }
+        if let Some(ref value) = self.    requires {
+            props.push(("requires",value.to_owned()));
+        }
+        if let Some(ref value) = self.rights {
+            props.push(("rights",value.to_owned()));
+        }
+        for value in self.rights_holder.iter() {
+            props.push(("rightsHolder",serde_json::to_string(value).unwrap_or("".to_owned())));
+        }
+        if let Some(ref value) = self.source {
+            props.push(("source",value.to_owned()));
+        }
+        if let Some(ref value) = self.spatial {
+            props.push(("spatial",value.to_owned()));
+        }
+        if let Some(ref value) = self.subject {
+            props.push(("subject",value.to_owned()));
+        }
+        if let Some(ref value) = self.table_of_contents {
+            props.push(("tableOfContents",value.to_owned()));
+        }
+        if let Some(ref value) = self.    temporal {
+            props.push(("temporal",value.to_owned()));
+        }
+        if let Some(ref value) = self._type {
+            props.push(("type",value.to_owned()));
+        }
+        if let Some(ref value) = self.valid {
+            props.push(("valid",value.to_owned()));
+        }
+
+        props
     }
 }
 
@@ -296,7 +734,9 @@ impl FromStr for Genre {
 #[derive(Clone,Debug,Serialize,Deserialize,PartialEq)]
 pub struct Agent {
     pub name : String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub email : Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub url : Option<String>
 }
 
@@ -308,12 +748,6 @@ impl Agent {
             url: None
         }
     }
-}
-
-#[derive(Clone,Debug,Serialize,Deserialize)]
-pub struct DCProperty {
-    name : String,
-    value : String
 }
 
 #[derive(Clone,Debug,Serialize,Deserialize)]

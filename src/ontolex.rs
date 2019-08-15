@@ -88,9 +88,13 @@ fn read_dictionary(release : Release, genre : Vec<Genre>,
     let mut license : Option<String> = None;
     let mut creator_uris = Vec::new();
     let mut publisher_uris = Vec::new();
+    let mut contributor_uris = Vec::new();
+    let mut mediator_uris = Vec::new();
+    let mut rights_holder_uris = Vec::new();
     let mut agent_names = HashMap::new();
     let mut agent_mboxs = HashMap::new();
     let mut agent_homepages = HashMap::new();
+    let mut dc_props = HashMap::new();
     for triple in triples.iter() {
         let Triple(subj, pred, obj) = triple;
         if *pred == NamedNode::make_uri("http://www.w3.org/ns/lemon/lime#language") {
@@ -110,6 +114,24 @@ fn read_dictionary(release : Release, genre : Vec<Genre>,
         } else if *pred == NamedNode::make_uri("http://purl.org/dc/terms/publisher") {
             if let Value::Resource(r) = obj {
                 publisher_uris.push(r.clone());
+            }
+         } else if *pred == NamedNode::make_uri("http://purl.org/dc/terms/contributor") {
+            if let Value::Resource(r) = obj {
+                contributor_uris.push(r.clone());
+            }
+         } else if *pred == NamedNode::make_uri("http://purl.org/dc/terms/mediator") {
+            if let Value::Resource(r) = obj {
+                mediator_uris.push(r.clone());
+            }
+         } else if *pred == NamedNode::make_uri("http://purl.org/dc/terms/rightsHolder") {
+            if let Value::Resource(r) = obj {
+                rights_holder_uris.push(r.clone());
+            }
+        } else if pred.uri().starts_with("http://purl.org/dc/terms/") {
+            if let Value::Literal(l) = obj {
+                dc_props.insert(pred.uri()[25..].to_owned(), l.string_value().to_owned());
+            } else if let Value::Resource(Resource::Named(nn)) = obj {
+                dc_props.insert(pred.uri()[25..].to_owned(), nn.uri());
             }
         } else if *pred == NamedNode::make_uri("http://xmlns.com/foaf/0.1/name") {
             if let Value::Literal(l) = obj {
@@ -134,17 +156,34 @@ fn read_dictionary(release : Release, genre : Vec<Genre>,
             }
         }
     }
-    let mut creator = Vec::new();
-    for creator_uri in creator_uris.into_iter() {
-        creator.push(Agent {
-            name: (*agent_names.get(&creator_uri).ok_or(BackendError::OntoLex(format!("A creator <{:?}> does not have a foaf:name", creator_uri)))?).to_owned(),
-            email: agent_mboxs.get(&creator_uri).map(|x| x.to_owned()),
-            url: agent_homepages.get(&creator_uri).map(|x| x.to_owned())
-        });
+    let creator = make_agents(&creator_uris, &agent_names, &agent_mboxs, &agent_homepages)?;
+    let publisher = make_agents(&publisher_uris, &agent_names, &agent_mboxs, &agent_homepages)?;
+
+    let mut dict = Dictionary::new(
+        release, 
+        source_language.clone().ok_or(BackendError::OntoLex("Dictionary does not have a lime:language property".to_string()))?,
+        vec![source_language.unwrap().clone()], // Unwrap is safe here as line above would already have failed
+        genre,
+        license.ok_or(BackendError::OntoLex("Dictionary does not have a dct:license property".to_string()))?,
+        creator,
+        publisher
+    );
+
+    dict.contributor = make_agents(&contributor_uris, &agent_names, &agent_mboxs, &agent_homepages)?;
+    dict.mediator = make_agents(&mediator_uris, &agent_names, &agent_mboxs, &agent_homepages)?;
+    dict.rights_holder = make_agents(&rights_holder_uris, &agent_names, &agent_mboxs, &agent_homepages)?;
+
+    for (prop, value) in dc_props.iter() {
+        dict.set_dc_prop(prop, value);
     }
 
+    Ok(dict)
+}
+
+fn make_agents(uris : &Vec<Resource>, agent_names : &HashMap<Resource, &str>,
+    agent_mboxs : &HashMap<Resource, String>, agent_homepages : &HashMap<Resource, String>) -> Result<Vec<Agent>, BackendError> {
     let mut publisher = Vec::new();
-    for publisher_uri in publisher_uris.into_iter() {
+    for publisher_uri in uris.into_iter() {
         publisher.push(Agent {
             name: (*agent_names.get(&publisher_uri).ok_or(BackendError::OntoLex(format!("A publisher <{:?}> does not have a foaf:name", publisher_uri)))?).to_owned(),
             email: agent_mboxs.get(&publisher_uri).map(|x| x.to_owned()),
@@ -152,17 +191,9 @@ fn read_dictionary(release : Release, genre : Vec<Genre>,
         });
     }
 
-    Ok(Dictionary {
-        release, 
-        source_language: source_language.clone().ok_or(BackendError::OntoLex("Dictionary does not have a lime:language property".to_string()))?,
-        target_language: vec![source_language.unwrap().clone()], // Unwrap is safe here as line above would already have failed
-        genre,
-        license: license.ok_or(BackendError::OntoLex("Dictionary does not have a dct:license property".to_string()))?,
-        creator,
-        publisher
-    })
-}
+    Ok(publisher)
 
+}
 
 fn add_entries(id : &str, 
     entry_triples : &mut Vec<&Triple>) -> Result<EntryContent,BackendError> {
@@ -432,6 +463,7 @@ fn test_read_ontolex() {
     dct:publisher [
         foaf:name \"Publisher\"
     ] ;
+    dct:description \"An awesome test resource\" ;
     lime:entry <#entry1>, <#entry2> .
 
 <#entry1> a ontolex:LexicalEntry ;
@@ -471,6 +503,7 @@ fn test_read_ontolex() {
         email: None,
         url: None
     }]);
+    assert_eq!(dict.description, Some("An awesome test resource".to_owned()));
 
     let entry_set1 = dictionary.lookup("dictionary", "cat", None, None, None, false).unwrap();
     assert_eq!(entry_set1.len(), 1);

@@ -8,6 +8,7 @@
 <#dictionary> a lime:Lexicon ;
     lime:language "en" ;
     dct:license <http://www.example.com/license> ;
+    dct:description "A test resource" ;
     dct:creator [
         foaf:name "Joe Bloggs" ;
         foaf:mbox <mailto:test@example.com> ;

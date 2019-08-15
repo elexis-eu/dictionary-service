@@ -1,5 +1,5 @@
 [package]
-name = "eds"
+name = "elexis-dictionary-service"
 version = "0.1.0"
 authors = ["John P. McCrae <john@mccr.ae>"]
 edition = "2018"

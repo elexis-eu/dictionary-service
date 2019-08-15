@@ -45,6 +45,11 @@ impl RusqliteState {
                  license TEXT,
                  creators TEXT,
                  publishers TEXT)", NO_PARAMS)?;
+        db.execute("CREATE TABLE IF NOT EXISTS dictionary_dc
+                (id TEXT,
+                 prop TEXT,
+                 value TEXT)", NO_PARAMS)?;
+        db.execute("CREATE INDEX IF NOT EXISTS dictionary_dc_idx ON dictionary_dc (id)", NO_PARAMS)?;
         db.execute("CREATE TABLE IF NOT EXISTS entries
                 (row_id INTEGER PRIMARY KEY,
                  release TEXT,
@@ -89,6 +94,11 @@ impl RusqliteState {
               &dict.license,
               &serde_json::to_string(&dict.creator).unwrap(),
               &serde_json::to_string(&dict.publisher).unwrap()])?;
+
+        let mut stmt = db.prepare("INSERT INTO dictionary_dc (id, prop, value) VALUES (?,?,?)")?;
+        for (prop, value) in dict.get_dc_props().iter() {
+            stmt.execute(&[dict_id, *prop, value])?;
+        }
         Ok(())
     }
     fn insert_entry(&self, db : &Connection, dict_id : &str, entry_content : EntryContent, release : Release) -> Result<(),rusqlite::Error> {
@@ -139,6 +149,19 @@ impl RusqliteState {
         Ok(())
 
     }
+
+    pub fn delete(&self, dict_id : &str) -> Result<(),BackendError> {
+        let db = Connection::open(&self.path)?;
+        db.execute("DELETE FROM dictionaries WHERE id=?", &[dict_id])?;
+        db.execute("DELETE FROM dictionary_dc WHERE id=?", &[dict_id])?;
+        db.execute("DELETE FROM variants WHERE entry_id IN (SELECT row_id FROM entries WHERE dict=?)", &[dict_id])?;
+        db.execute("DELETE FROM json_entries WHERE entry_id IN (SELECT row_id FROM entries WHERE dict=?)", &[dict_id])?;
+        db.execute("DELETE FROM tei_entries WHERE entry_id IN (SELECT row_id FROM entries WHERE dict=?)", &[dict_id])?;
+        db.execute("DELETE FROM ontolex_entries WHERE entry_id IN (SELECT row_id FROM entries WHERE dict=?)", &[dict_id])?;
+        db.execute("DELETE FROM entries WHERE dict=?", &[dict_id])?;
+        
+        Ok(())
+    }
 }
 
 impl Backend for RusqliteState {
@@ -173,8 +196,20 @@ impl Backend for RusqliteState {
             let p_str : String = r.get(6)?;
             let publishers = serde_json::from_str(&p_str)?;
 
-            Ok(Dictionary::new(release, source_lang, targ_langs,
-                    genres, license, creators, publishers))
+            let mut dict = Dictionary::new(release, source_lang, targ_langs,
+                    genres, license, creators, publishers);
+
+            let mut stmt = db.prepare("SELECT prop, value FROM dictionary_dc WHERE id=?")?;
+            let rows = stmt.query_map(&[dictionary], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?;
+
+            for row in rows {
+                let (prop, value) : (String, String) = row?;
+                dict.set_dc_prop(&prop, &value);
+            }
+
+            Ok(dict)
 
         } else {
             Err(BackendError::NotFound)
@@ -379,18 +414,18 @@ fn test_load_db() {
     let state = RusqliteState::new("test-tmp2.db");
     let mut dictionaries = HashMap::new();
     dictionaries.insert("dict1".to_string(),
-        Dictionary {
-            release: Release::PUBLIC,
-            source_language: "en".to_string(),
-            target_language: vec!["en".to_string(),"de".to_string()],
-            genre: vec![Genre::gen],
-            license: "http://license.url/".to_string(),
-            creator: vec![Agent { 
+        Dictionary::new(
+            Release::PUBLIC,
+            "en".to_string(),
+            vec!["en".to_string(),"de".to_string()],
+            vec![Genre::gen],
+            "http://license.url/".to_string(),
+            vec![Agent { 
                 name: "Joe Bloggs".to_string(), 
                 email: Some("joe@example.com".to_string()),
                 url: None }],
-            publisher: Vec::new()
-        });
+            Vec::new()
+        ));
     let mut entries = HashMap::new();
     entries.insert("dict1".to_string(), vec![
         EntryContent::Json(serde_json::from_str("{
@@ -419,18 +454,18 @@ fn test_backend() {
     let state = RusqliteState::new("test-tmp3.db");
     let mut dictionaries = HashMap::new();
     dictionaries.insert("dict1".to_string(),
-        Dictionary {
-            release: Release::PUBLIC,
-            source_language: "en".to_string(),
-            target_language: vec!["en".to_string(),"de".to_string()],
-            genre: vec![Genre::gen],
-            license: "http://license.url/".to_string(),
-            creator: vec![Agent { 
+        Dictionary::new(
+            Release::PUBLIC,
+            "en".to_string(),
+            vec!["en".to_string(),"de".to_string()],
+            vec![Genre::gen],
+            "http://license.url/".to_string(),
+            vec![Agent { 
                 name: "Joe Bloggs".to_string(), 
                 email: Some("joe@example.com".to_string()),
                 url: None }],
-            publisher: Vec::new()
-        });
+            Vec::new()
+        ));
     let mut entries = HashMap::new();
     entries.insert("dict1".to_string(), vec![
         EntryContent::Json(serde_json::from_str("{
