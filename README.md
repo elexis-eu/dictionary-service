@@ -137,8 +137,8 @@ The Json format consists of an object of the following form
 ```json
 {
     "dict_id": {
-        "meta": {...},
-        "entries: [...]
+        "meta": {    },
+        "entries: [    ]
     }
 }
 ```
