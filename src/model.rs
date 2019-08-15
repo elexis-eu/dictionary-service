@@ -225,7 +225,9 @@ pub struct Dictionary {
     pub target_language : Vec<String>,
     pub genre : Vec<Genre>,
     pub license : String,
+    #[serde(default)]
     pub creator : Vec<Agent>,
+    #[serde(default)]
     pub publisher : Vec<Agent>,
     /// A summary of the resource.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -265,6 +267,7 @@ pub struct Dictionary {
 
     /// An entity responsible for making contributions to the resource.
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub contributor  : Vec<Agent>,
 
     /// The spatial or temporal topic of the resource, the spatial applicability of the resource, or the jurisdiction under which the resource is relevant.
@@ -353,6 +356,7 @@ pub struct Dictionary {
 
     /// An entity that mediates access to the resource and for whom the resource is intended or useful.
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub mediator     : Vec<Agent>,
 
     /// Date on which the resource was changed.
@@ -385,6 +389,7 @@ pub struct Dictionary {
 
     /// A person or organization owning or managing rights over the resource.
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub rights_holder : Vec<Agent>,
 
     /// A related resource from which the described resource is derived.

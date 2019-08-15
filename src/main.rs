@@ -267,7 +267,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
         let dictionaries : HashMap<String, DictJson> = serde_json::from_reader(
             File::open(data).
             unwrap_or_else(|e| show_help(&format!("Could not open data file: {}", e.description()), app))).
-            unwrap_or_else(|e| show_help(&format!("Could not read dictionary file: {}", e.description()), app));
+            unwrap_or_else(|e| show_help(&format!("Could not read dictionary file: {:?}", e), app));
         let mut dict_map = HashMap::new();
         let mut entry_map = HashMap::new();
         for (id, dj) in dictionaries {
