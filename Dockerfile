@@ -5,6 +5,6 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         sqlite3
 
-ADD target/release/elexis-dictionary-service /bin/
+COPY target/release/elexis-dictionary-service /bin/
 
 ENTRYPOINT ["/bin/elexis-dictionary-service"]

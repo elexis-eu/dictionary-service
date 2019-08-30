@@ -360,7 +360,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
     }
 }
 
-static mut ADDR : (&'static str, u16) = ("127.0.0.1",0);
+static mut ADDR : (&'static str, u16) = ("0.0.0.0",0);
 
 fn start_server(state : BackendImpl) {
     unsafe {
