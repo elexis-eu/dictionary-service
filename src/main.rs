@@ -284,7 +284,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
         if let Some(release) = config.default_release.clone() {
             release
         } else {
-            eprintln!("Release is not specified or bad value, assuming PUBLIC");
+            eprintln!("Release is not specified or bad value, assuming PUBLIC (specify with --release flag)");
             model::Release::PUBLIC
         }
     });
@@ -319,7 +319,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
             if let Some(id) = config.default_id.clone() {
                 id
             } else {
-                show_help("ID is required for TEI files",app)
+                show_help("ID is required for TEI files (specify with --id flag)",app)
             }
         });
 
