@@ -42,7 +42,6 @@ USAGE:
 
 FLAGS:
     -h, --help       Prints help information
-        --no-sql     Do not use SQLite (all data is temporary and session only)
     -V, --version    Prints version information
 
 OPTIONS:
@@ -124,7 +123,7 @@ OPTIONS:
         --db-path <db_path>    The path to use for the database (Default: eds.db)
 
 ARGS:
-    <data>    Also load a single data file
+    <data>    Data file to delete
 ```
 
 For example
@@ -187,18 +186,16 @@ The TEI-Lex0 document should be a valid XML document with at least the following
         <gramGrp>
             <gram type="pos" norm="NOUN">noun</gram>
         </gramGrp>
-        <senses>
-            <sense>
-                <def>young female</def>#
-            </sense>
-        </senses>
+        <sense>
+            <def>young female</def>#
+        </sense>
     </body>
 </TEI>
 ```
 
 The following constraints are required
 
-1. A `licence` must be given with at `target`
+1. A `licence` must be given with a `target`
 2. An `entry` must have a `form[@type=lemma]`
 3. An `entry` must have a `gram[@type=pos]` and it should have a `norm` referring
 to a UD category unless mapping is used (see below)
@@ -270,7 +267,7 @@ The entry starts with a triple of the form
 All triples after this until another similar triple occurs in the file are
 considered the description of this entry. 
 
-All entries must have `ontolex:canonicalForm` with an `ontolex:writtenRep`. 
+All entries must have an `ontolex:canonicalForm` with an `ontolex:writtenRep`. 
 
 All entries must be given by URIs and referred to by a `lime:entry` triple from
 a lexicon
