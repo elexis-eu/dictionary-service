@@ -1,4 +1,3 @@
-#![feature(drain_filter)]
 extern crate gotham;
 extern crate http;
 extern crate hyper;
