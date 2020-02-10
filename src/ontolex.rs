@@ -318,6 +318,14 @@ fn format_triples(triples : &Vec<&Triple>) -> String {
         indent:0
     };
 
+    state.out.push_str("@prefix lime: <http://www.w3.org/ns/lemon/lime#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/2.0/lexinfo#> .
+
+");
 
     while let Some(ref triple) = state.iter.next() {
         if let Some((ref subj, ref pred)) = subject_pred {
@@ -536,7 +544,14 @@ fn test_read_ontolex() {
 
     let entry1_ontolex = dictionary.entry_ontolex("dictionary", "entry1").unwrap();
 
-    assert_eq!(entry1_ontolex, "<#entry1> a ontolex:LexicalEntry ;
+    assert_eq!(entry1_ontolex, "@prefix lime: <http://www.w3.org/ns/lemon/lime#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix lexinfo: <http://www.lexinfo.net/ontology/2.0/lexinfo#> .
+
+<#entry1> a ontolex:LexicalEntry ;
   lexinfo:partOfSpeech lexinfo:commonNoun ;
   ontolex:canonicalForm [
     ontolex:writtenRep \"cat\"@en ] ;
