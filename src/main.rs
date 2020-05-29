@@ -43,7 +43,6 @@ use clap::{App, Arg, SubCommand, ArgMatches};
 use std::fs::File;
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::error::Error;
 
 use crate::model::{EDSState, Dictionary, JsonEntry, PartOfSpeech, EntryContent, BackendError, Entry};
 use crate::sqlite::RusqliteState;
@@ -300,7 +299,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
             BackendImpl::Mem(EDSState::new(release, dict_map, entry_map))
         } else {
             let db = RusqliteState::new(db_path);
-            db.load(release,dict_map,entry_map).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.description())));
+            db.load(release,dict_map,entry_map).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.to_string())));
             BackendImpl::DB(db)
         }
     } else if format == "tei" || data.ends_with(".tei") || data.ends_with(".xml") {
@@ -320,13 +319,13 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
         });
 
         tei::parse(File::open(data)
-            .unwrap_or_else(|e| fail(&format!("Could not open data file: {}", e.description()))), 
+            .unwrap_or_else(|e| fail(&format!("Could not open data file: {}", e.to_string()))), 
                 &id, release, genres, &config, |r,d,e| {
                     if no_sql {
                         BackendImpl::Mem(EDSState::new(r,d,e))
                     } else {
                         let db = RusqliteState::new(db_path);
-                        db.load(r,d,e).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.description())));
+                        db.load(r,d,e).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.to_string())));
                         BackendImpl::DB(db)
                     }
                 })
@@ -348,16 +347,16 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
 
 
         ontolex::parse(File::open(data)
-            .unwrap_or_else(|e| fail(&format!("Could not open data file: {}", e.description()))), 
+            .unwrap_or_else(|e| fail(&format!("Could not open data file: {}", e.to_string()))), 
                 release, genres, &config, &id, |r,d,e| {
                     if no_sql {
                         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
                     } else {
                         let db = RusqliteState::new(db_path);
-                        db.load(r,d,e).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.description())));
+                        db.load(r,d,e).unwrap_or_else(|e| fail(&format!("Could not load database: {}", e.to_string())));
                         Ok(BackendImpl::DB(db))
                     }
-                }).unwrap_or_else(|e| fail(&format!("Could not read OntoLex file: {}", e.description())))
+                }).unwrap_or_else(|e| fail(&format!("Could not read OntoLex file: {}", e.to_string())))
  
     } else {
         show_help(&format!("Unsupported format: {}", format),app);
