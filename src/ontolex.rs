@@ -22,15 +22,15 @@ fn make_id(s : &str) -> String {
 }
 
 pub fn parse<R : Read, F>(mut input : R, release : Release,
-    genre : Vec<Genre>, cfg : &Config, foo : F) -> Result<BackendImpl,BackendError>
+    genre : Vec<Genre>, cfg : &Config, id : &str, foo : F) -> Result<BackendImpl,BackendError>
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
         let mut content = String::new();
         input.read_to_string(&mut content)?;
-        parse_str(&content, release, genre, cfg, foo)
+        parse_str(&content, release, genre, cfg, id, foo)
 }
 
 pub fn parse_str<F>(content : &str, release : Release,
-    genre : Vec<Genre>, cfg : &Config, foo : F) -> Result<BackendImpl,BackendError>
+    genre : Vec<Genre>, cfg : &Config, id : &str, foo : F) -> Result<BackendImpl,BackendError>
     where F : FnOnce(Release, HashMap<String, Dictionary>, HashMap<String, Vec<EntryContent>>) -> Result<BackendImpl,BackendError> {
         let triples = parse_turtle(content)?;
         let mut dictionary = HashMap::new();
@@ -59,10 +59,24 @@ pub fn parse_str<F>(content : &str, release : Release,
                         !is_lexical_entry_uri(&t.2)).collect();
                     let t2 = Triple(subj.clone(), pred.clone(), obj.clone());
                     entry_triples.insert(0, &t2);
-                    entries_by_uri.insert(r.uri(), add_entries(&r.uri(), 
-                            &mut entry_triples, cfg)?);
+                    let e = add_entries(&r.uri(), 
+                            &mut entry_triples, cfg)?;
+                    entries_by_uri.insert(r.uri(), e);
+                    entry2dict.entry(r.uri().clone())
+                        .or_insert(id.to_string());
+
                 }
             }
+        }
+        
+        if !dictionary.contains_key(id) {
+            dictionary.insert(id.to_owned(), Dictionary::new(
+                release.clone(),
+                "und".to_owned(),
+                vec!["und".to_owned()],
+                genre.clone(),
+                "unknown".to_owned(),
+                Vec::new(), Vec::new()));
         }
 
         let mut entries = HashMap::new();
@@ -226,6 +240,16 @@ fn extract_lemma(id : &str, triples : &Vec<&Triple>) -> Result<String,BackendErr
                 Err(BackendError::OntoLex("Canonical form is not a resource".to_owned()))
             }
         })
+        .or_else(|_| triples.iter().find(|t|
+                t.0 == Resource::make_uri(id) &&
+                t.1 == NamedNode::make_uri("http://www.w3.org/2000/01/rdf-schema#label"))
+            .ok_or(BackendError::OntoLex("Entry has no canonical form".to_owned()))
+            .and_then(|t0| {
+                match t0.2 {
+                    Value::Literal(ref l) => Ok(l.string_value().to_owned()),
+                    _ => Err(BackendError::OntoLex("rdfs:label is not a literal".to_owned()))
+                }
+            }))
 }
 
 fn extract_pos(id : &str, triples : &Vec<&Triple>, cfg : &Config) -> Vec<PartOfSpeech> {

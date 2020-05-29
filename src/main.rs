@@ -267,7 +267,7 @@ fn show_help(msg : &str, app : &mut App) -> ! {
 }
 
 fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
-    let format = matches.value_of("data").unwrap_or("");
+    let format = matches.value_of("format").unwrap_or("");
     let data : &str = matches.value_of("data").unwrap_or_else(|| show_help("The data paramter is required", app));
     let no_sql = false;//matches.value_of("no_sql").is_some();
     let db_path = matches.value_of("db_path").unwrap_or("eds.db");
@@ -330,7 +330,7 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
                         BackendImpl::DB(db)
                     }
                 })
-    } else if format == "ontolex" || data.ends_with(".rdf") || data.ends_with(".ttl") {
+    } else if format == "ttl" || data.ends_with(".rdf") || data.ends_with(".ttl") || data.ends_with(".nt") {
         let mut genres = Vec::new();
         if let Some(gs) = matches.values_of("genre") {
             for g in gs {
@@ -338,10 +338,18 @@ fn load_data(matches : &ArgMatches, app : &mut App) -> BackendImpl {
                     unwrap_or_else(|e| show_help(&e, app)));
             }
         };
+        let id = matches.value_of("id").map(|x| x.to_owned()).unwrap_or_else(|| { 
+            if let Some(id) = config.default_id.clone() {
+                id
+            } else {
+                "default".to_owned()
+            }
+        });
+
 
         ontolex::parse(File::open(data)
             .unwrap_or_else(|e| fail(&format!("Could not open data file: {}", e.description()))), 
-                release, genres, &config, |r,d,e| {
+                release, genres, &config, &id, |r,d,e| {
                     if no_sql {
                         Ok(BackendImpl::Mem(EDSState::new(r,d,e)))
                     } else {
