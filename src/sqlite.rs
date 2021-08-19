@@ -1,4 +1,4 @@
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Connection};
 
 use crate::model::{Backend,Dictionary,Entry,JsonEntry,PartOfSpeech,BackendError,Release,EntryContent,Format};
 #[cfg(test)]
@@ -44,12 +44,12 @@ impl RusqliteState {
                  genres TEXT,
                  license TEXT,
                  creators TEXT,
-                 publishers TEXT)", NO_PARAMS)?;
+                 publishers TEXT)", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS dictionary_dc
                 (id TEXT,
                  prop TEXT,
-                 value TEXT)", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS dictionary_dc_idx ON dictionary_dc (id)", NO_PARAMS)?;
+                 value TEXT)", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS dictionary_dc_idx ON dictionary_dc (id)", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS entries
                 (row_id INTEGER PRIMARY KEY,
                  release TEXT,
@@ -57,29 +57,29 @@ impl RusqliteState {
                  id TEXT,
                  part_of_speech TEXT,
                  dict TEXT,
-                 UNIQUE(dict,id))", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS entries_idx ON entries (lemma)", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS entries_idx2 ON entries (dict)", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS entries_idx3 ON entries (id)", NO_PARAMS)?;
+                 UNIQUE(dict,id))", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS entries_idx ON entries (lemma)", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS entries_idx2 ON entries (dict)", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS entries_idx3 ON entries (id)", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS variants
                 (entry_id INTEGER,
                  form TEXT,
-                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", NO_PARAMS)?;
+                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS json_entries
                 (entry_id INTEGER,
                  json TEXT,
-                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS json_entries_idx ON json_entries (entry_id)", NO_PARAMS)?;
+                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS json_entries_idx ON json_entries (entry_id)", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS ontolex_entries
                 (entry_id INTEGER,
                  ontolex TEXT,
-                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS ontolex_entries_idx ON ontolex_entries (entry_id)", NO_PARAMS)?;
+                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS ontolex_entries_idx ON ontolex_entries (entry_id)", [])?;
         db.execute("CREATE TABLE IF NOT EXISTS tei_entries
                 (entry_id INTEGER,
                  tei TEXT,
-                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", NO_PARAMS)?;
-        db.execute("CREATE INDEX IF NOT EXISTS tei_entries_idx ON tei_entries (entry_id)", NO_PARAMS)?;
+                 FOREIGN KEY (entry_id) REFERENCES entries(row_id))", [])?;
+        db.execute("CREATE INDEX IF NOT EXISTS tei_entries_idx ON tei_entries (entry_id)", [])?;
         Ok(())
     }
 
@@ -115,7 +115,7 @@ impl RusqliteState {
                 dict_id])?;
 
             let mut stmt2 = db.prepare("SELECT last_insert_rowid()")?;
-            let mut result = stmt2.query(NO_PARAMS)?;
+            let mut result = stmt2.query([])?;
 
             if let Some(r) = result.next()? {
                 r.get(0)? 
@@ -169,7 +169,7 @@ impl Backend for RusqliteState {
     fn dictionaries(&self) -> Result<Vec<String>,BackendError> {
         let db = Connection::open(&self.path)?;
         let mut stmt = db.prepare("SELECT id FROM dictionaries")?;
-        let mut result = stmt.query(NO_PARAMS)?;
+        let mut result = stmt.query([])?;
         let mut dict_list = Vec::new();
         while let Some(r) = result.next()? {
             dict_list.push(r.get(0)?);
@@ -323,7 +323,7 @@ impl Backend for RusqliteState {
             params.push(&o_str);
         }
         let mut stmt = db.prepare(&q)?;
-        let mut result = stmt.query(&params)?;
+        let mut result = stmt.query(rusqlite::params_from_iter(params.iter()))?;
         let mut entries = Vec::new();
         while let Some(r) = result.next()? {
             let r_str : String = r.get(0)?;
